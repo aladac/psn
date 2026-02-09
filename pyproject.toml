@@ -1,0 +1,30 @@
+[project]
+name = "personality"
+version = "0.1.0"
+description = "Personality engine with voice synthesis and cartridge system"
+readme = "README.md"
+authors = [
+    { name = "Adam Ladachowski", email = "adam.ladachowski@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "click>=8.1.0",
+    "mcp>=1.20.0",
+    "piper-tts>=1.2.0",
+    "pyyaml>=6.0",
+    "rich>=13.0.0",
+]
+
+[project.scripts]
+psn = "personality.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.9.21,<0.10.0"]
+build-backend = "uv_build"
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]

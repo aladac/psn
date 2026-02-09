@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "personality": {
+      "command": "uv",
+      "args": ["run", "psn", "mcp"],
+      "disabled": false
+    }
+  }
+}
