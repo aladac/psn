@@ -66,7 +66,11 @@ def create_server() -> FastMCP:
 
 def run_server() -> None:
     """Run the MCP server with stdio transport."""
-    # Import tools and resources to register them
-    from personality.mcp import resources, tools  # noqa: F401
+    # Import tools and resources to register them with the MCP server
+    from personality.mcp import resources as _resources
+    from personality.mcp import tools as _tools
+
+    # Reference imports to register decorators
+    _ = (_resources, _tools)
 
     mcp.run(transport="stdio")

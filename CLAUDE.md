@@ -27,7 +27,20 @@ uv run psn install
 # Lint
 uv run ruff check src/
 uv run ruff format --check src/
+
+# Test
+uv run pytest
+uv run pytest tests/test_config.py -v        # single file
+uv run pytest -k "test_returns_voice"        # by name pattern
 ```
+
+## Code Standards
+
+- **File size**: 150 lines preferred, 250 max
+- **Function size**: 15 lines preferred, 30 max
+- **No suppression comments**: Never use `# noqa`, `# type: ignore`
+- **Exception handling**: Always log or re-raise with context
+- **Logging**: Required for all modules (already configured)
 
 ## Architecture
 
