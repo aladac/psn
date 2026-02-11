@@ -36,11 +36,38 @@ uv run pytest -k "test_returns_voice"        # by name pattern
 
 ## Code Standards
 
+### Limits
 - **File size**: 150 lines preferred, 250 max
 - **Function size**: 15 lines preferred, 30 max
-- **No suppression comments**: Never use `# noqa`, `# type: ignore`
-- **Exception handling**: Always log or re-raise with context
-- **Logging**: Required for all modules (already configured)
+- **Parameters**: 5 max per function
+
+### Zero Tolerance
+Never use - fix actual issues instead:
+- `# noqa`, `# type: ignore`
+- `_param` to suppress unused warnings
+- Any linter suppression comments
+
+### Exception Handling
+- Always log or re-raise with context
+- Use exception chaining (`raise ... from e`)
+- Never silently swallow exceptions
+
+### Logging
+- Required for all modules
+- Use appropriate levels (debug, info, warning, error)
+
+### Testing
+- **Minimum coverage: 91%** - Stop and add tests if coverage drops
+- **Test as you go** - Write unit → Write test → Repeat
+- **No test debt** - Tests are part of implementation
+- Organization: `src/foo.py` → `tests/test_foo.py`
+
+### Before Finishing
+```bash
+uv run ruff check src/    # Zero warnings
+uv run ruff format src/
+uv run pytest --cov       # Coverage ≥91%
+```
 
 ## Architecture
 

@@ -1,9 +1,9 @@
 # TODO: Personality Memory & Context System
 
 ## Phase 1: Ollama Embedder
-- [ ] Step 1.1: Add Dependencies
-- [ ] Step 1.2: Create Embedder Module
-- [ ] Step 1.3: Add Embedder Tests
+- [x] Step 1.1: Add Dependencies
+- [x] Step 1.2: Create Embedder Module
+- [x] Step 1.3: Add Embedder Tests
 
 ## Phase 2: Memory Store
 - [ ] Step 2.1: Create Database Schema

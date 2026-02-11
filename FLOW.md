@@ -2,7 +2,7 @@
 
 > **Integration flow for Personality + Memory + Claude Code hooks**
 >
-> **Constraint:** No external shell scripts. All hooks call `uv run psn <command>` directly.
+> **Constraint:** No external shell scripts. All hooks call `psn <command>` directly (pip-installed package).
 
 ---
 
@@ -19,7 +19,7 @@
 │         │                │                │               │         │
 │         ▼                ▼                ▼               ▼         │
 │  ┌──────────────────────────────────────────────────────────────┐   │
-│  │                    uv run psn <hook-cmd>                     │   │
+│  │                    psn <hook-cmd>                     │   │
 │  └──────────────────────────────────────────────────────────────┘   │
 ├─────────────────────────────────────────────────────────────────────┤
 │  MCP Server (stdio)                                                 │
@@ -54,34 +54,33 @@
   "hooks": {
     "SessionStart": [
       {
-        "command": "uv run psn hook session-start",
+        "command": "psn hook session-start",
         "timeout": 5000
       }
     ],
     "SessionEnd": [
       {
-        "command": "uv run psn hook session-end",
+        "command": "psn hook session-end",
         "timeout": 10000
       }
     ],
     "Stop": [
       {
-        "command": "uv run psn hook stop",
+        "command": "psn hook stop",
         "timeout": 3000
       }
     ],
     "Notification": [
       {
-        "command": "uv run psn hook notify",
+        "command": "psn hook notify",
         "timeout": 3000
       }
     ]
   },
   "mcpServers": {
     "personality": {
-      "command": "uv",
-      "args": ["run", "psn", "mcp"],
-      "cwd": "/Users/chi/Projects/personality",
+      "command": "psn",
+      "args": ["mcp"],
       "env": {
         "PERSONALITY_CART": "bt7274"
       }
@@ -207,7 +206,7 @@ psn silence    # Alias
 
 **Keyboard Shortcut (if configured):**
 ```
-Ctrl+Shift+S  → uv run psn stop
+Ctrl+Shift+S  → psn stop
 ```
 
 ### Implementation
@@ -339,10 +338,46 @@ When using `mcp__personality__speak`, follow these protocols:
 
 ## Hook Commands
 
+### Hook Logging
+
+All hooks log a single line to `~/.config/personality/hooks.log`:
+
+```
+2026-02-11T15:30:00 session-start cart=bt7274 project=personality
+2026-02-11T15:30:01 stop reason=end_turn
+2026-02-11T15:45:00 notify message="Task complete"
+2026-02-11T15:45:05 session-end memories_consolidated=3 duration=15m
+```
+
+**Format:** `{timestamp} {hook-name} {key=value...}`
+
+```python
+# src/personality/hooks/logging.py
+
+from datetime import datetime
+from pathlib import Path
+
+LOG_FILE = Path("~/.config/personality/hooks.log").expanduser()
+
+
+def log_hook(hook_name: str, **kwargs) -> None:
+    """Log a single line for hook invocation."""
+    LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+
+    timestamp = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+    params = " ".join(f"{k}={v}" for k, v in kwargs.items() if v is not None)
+    line = f"{timestamp} {hook_name} {params}".strip()
+
+    with LOG_FILE.open("a") as f:
+        f.write(line + "\n")
+```
+
 ### CLI Hook Subcommand
 
 ```python
 # src/personality/cli.py
+
+from personality.hooks.logging import log_hook
 
 @cli.group()
 def hook():
@@ -357,6 +392,9 @@ def hook_session_start(ctx):
     cart = ctx.obj["cart"]
     speak = ctx.obj["speak"]
     memory = ctx.obj["memory"]
+    cwd = Path.cwd()
+
+    log_hook("session-start", cart=cart.name, project=cwd.name)
 
     # Load recent context
     recent = memory.recall("session.context", k=3)
@@ -384,6 +422,8 @@ def hook_session_end(ctx):
     # Consolidate similar memories
     merged = memory.consolidate()
 
+    log_hook("session-end", memories_consolidated=merged)
+
     # Farewell
     speak.say("Session complete. Standing by, Pilot.", cart.voice)
 
@@ -403,6 +443,8 @@ def hook_stop(ctx):
 
     stop_reason = data.get("stop_reason", "unknown")
 
+    log_hook("stop", reason=stop_reason)
+
     # Only speak on end_turn, not tool_use
     if stop_reason == "end_turn":
         speak = ctx.obj["speak"]
@@ -415,6 +457,8 @@ def hook_stop(ctx):
 @click.pass_context
 def hook_notify(ctx, message):
     """Speak notification."""
+    log_hook("notify", message=message[:50])  # Truncate for log
+
     speak = ctx.obj["speak"]
     cart = ctx.obj["cart"]
     speak.say(message, cart.voice)
@@ -1184,8 +1228,10 @@ def cart_import(path: str, mode: str = "safe", ctx: Context = None) -> str:
 │   └── bt7274.yml           # Personality definition
 ├── voices/
 │   └── bt7274.onnx          # Piper voice model
-└── memory/
-    └── bt7274.db            # sqlite-vec database
+├── memory/
+│   └── bt7274.db            # sqlite-vec database
+├── hooks.log                # Hook invocation log (single-line entries)
+└── .tts_pid                 # Current TTS process ID (for stop)
 
 ~/.claude/
 ├── settings.json            # Hooks + MCP config
