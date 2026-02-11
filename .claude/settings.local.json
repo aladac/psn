@@ -1,11 +1,12 @@
 {
+  "permissions": {
+    "allow": [
+      "mcp__personality__speak",
+      "mcp__personality__recall"
+    ]
+  },
   "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
     "personality"
-  ],
-  "permissions": {
-    "allow": [
-      "mcp__personality__speak"
-    ]
-  }
+  ]
 }
