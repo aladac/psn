@@ -3,7 +3,9 @@
     "personality": {
       "command": "uv",
       "args": ["run", "psn", "mcp"],
-      "disabled": false
+      "env": {
+        "PERSONALITY_CART": "bt7274"
+      }
     }
   }
 }

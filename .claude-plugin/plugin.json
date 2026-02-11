@@ -1,12 +1,26 @@
 {
   "name": "personality",
   "version": "0.1.0",
-  "description": "Personality engine with voice synthesis for Claude Code",
+  "description": "Personality engine with voice synthesis, memory system, and project indexing for Claude Code",
   "author": {
     "name": "aladac"
   },
   "homepage": "https://github.com/aladac/personality",
   "repository": "https://github.com/aladac/personality",
   "license": "MIT",
-  "keywords": ["personality", "speak", "voice", "tts", "persona"]
+  "keywords": [
+    "personality",
+    "speak",
+    "voice",
+    "tts",
+    "persona",
+    "memory",
+    "embeddings",
+    "project-index"
+  ],
+  "capabilities": {
+    "mcp": true,
+    "hooks": true,
+    "commands": true
+  }
 }

@@ -1,9 +1,13 @@
 {
+  "$schema": "https://raw.githubusercontent.com/anthropics/claude-code/main/config-schema.json",
   "env": {
     "PERSONALITY_CART": "bt7274"
   },
   "permissions": {
     "allow": [
+      "Bash(uv run *)",
+      "Bash(git *)",
+      "Bash(pytest *)",
       "mcp__personality__speak",
       "mcp__personality__stop_speaking",
       "mcp__personality__remember",
@@ -14,7 +18,17 @@
       "mcp__personality__project_summary",
       "mcp__personality__cart_export",
       "mcp__personality__cart_import"
-    ]
+    ],
+    "deny": []
+  },
+  "mcpServers": {
+    "personality": {
+      "command": "uv",
+      "args": ["run", "psn", "mcp"],
+      "env": {
+        "PERSONALITY_CART": "bt7274"
+      }
+    }
   },
   "hooks": {
     "SessionStart": [
