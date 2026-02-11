@@ -302,3 +302,82 @@ async def cart_import(
     except Exception as e:
         logger.warning("cart_import_error: %s", e)
         return f"Error importing cart: {e}"
+
+
+@mcp.tool()
+async def docs_search(
+    query: str,
+    limit: int = 5,
+) -> str:
+    """
+    Search indexed documentation.
+
+    Args:
+        query: Search query
+        limit: Maximum results to return (default 5)
+    """
+    from personality.docs import get_doc_indexer
+
+    try:
+        indexer = get_doc_indexer()
+        results = indexer.search(query, k=limit)
+        indexer.close()
+
+        if not results:
+            return "No matching documentation found. Run `psn docs index` to index docs."
+
+        return _format_doc_results(results)
+    except Exception as e:
+        logger.warning("docs_search_error: %s", e)
+        return f"Error searching docs: {e}"
+
+
+@mcp.tool()
+async def docs_index(
+    path: str | None = None,
+    force: bool = False,
+) -> str:
+    """
+    Index a documentation directory.
+
+    Args:
+        path: Documentation directory path (default: ~/Projects/docs)
+        force: Re-index all files even if unchanged
+    """
+    from pathlib import Path
+
+    from personality.docs import get_doc_indexer
+
+    try:
+        docs_path = Path(path) if path else Path.home() / "Projects" / "docs"
+        if not docs_path.exists():
+            return f"Error: Path not found: {docs_path}"
+
+        indexer = get_doc_indexer(docs_path)
+        stats = indexer.index(force=force)
+        indexer.close()
+
+        return (
+            f"Indexed {stats['files_indexed']} files, "
+            f"{stats['chunks_created']} chunks "
+            f"({stats['files_skipped']} unchanged)"
+        )
+    except Exception as e:
+        logger.warning("docs_index_error: %s", e)
+        return f"Error indexing docs: {e}"
+
+
+def _format_doc_results(results: list) -> str:
+    """Format doc search results as markdown."""
+    lines = []
+    for r in results:
+        title = r.title or r.file_path
+        lines.append(f"**{title}** (score: {r.score:.2f})")
+        if r.heading:
+            lines.append(f"  *{r.heading}*")
+        content_preview = r.content[:200].replace("\n", " ")
+        lines.append(f"  {content_preview}...")
+        if r.source_url:
+            lines.append(f"  Source: {r.source_url}")
+        lines.append("")
+    return "\n".join(lines)

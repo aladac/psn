@@ -467,6 +467,137 @@ def cart_verify(path: str) -> None:
         console.print(f"  [{color}]{filename}:[/{color}] {status}")
 
 
+# Docs command group for document indexing
+@main.group()
+def docs() -> None:
+    """Index and search markdown documentation."""
+
+
+@docs.command("index")
+@click.option("--force", "-f", is_flag=True, help="Re-index all files.")
+@click.option("--path", "-p", type=click.Path(exists=True), help="Docs path.")
+def docs_index(force: bool, path: str | None) -> None:
+    """Index markdown documentation for semantic search.
+
+    Examples:
+        psn docs index              # Index ~/Projects/docs
+        psn docs index --force      # Re-index all files
+        psn docs index -p ./docs    # Index specific directory
+    """
+    from personality.docs import get_doc_indexer
+
+    docs_path = Path(path) if path else Path.home() / "Projects" / "docs"
+
+    if not docs_path.exists():
+        console.print(f"[red]Error:[/red] Path not found: {docs_path}")
+        raise SystemExit(1)
+
+    console.print(f"[cyan]Indexing:[/cyan] {docs_path}")
+    indexer = get_doc_indexer(docs_path)
+    stats = indexer.index(force=force)
+    indexer.close()
+
+    console.print(f"[green]Files indexed:[/green] {stats['files_indexed']}")
+    console.print(f"[dim]Chunks created:[/dim] {stats['chunks_created']}")
+    if stats["files_skipped"]:
+        console.print(f"[dim]Files skipped (unchanged):[/dim] {stats['files_skipped']}")
+
+
+@docs.command("search")
+@click.argument("query")
+@click.option("--limit", "-l", default=5, help="Max results.")
+@click.option("--path", "-p", type=click.Path(exists=True), help="Docs path.")
+def docs_search(query: str, limit: int, path: str | None) -> None:
+    """Search indexed documentation.
+
+    Examples:
+        psn docs search "MCP tools"
+        psn docs search "authentication" --limit 10
+    """
+    from personality.docs import get_doc_indexer
+
+    docs_path = Path(path) if path else Path.home() / "Projects" / "docs"
+    indexer = get_doc_indexer(docs_path)
+    results = indexer.search(query, k=limit)
+    indexer.close()
+
+    if not results:
+        console.print("[yellow]No results found.[/yellow]")
+        return
+
+    for r in results:
+        title = r.title or r.file_path
+        console.print(f"[cyan]{title}[/cyan] (score: {r.score:.2f})")
+        if r.heading:
+            console.print(f"  [dim]## {r.heading}[/dim]")
+        preview = r.content[:150].replace("\n", " ")
+        console.print(f"  {preview}...")
+        if r.source_url:
+            console.print(f"  [dim]Source: {r.source_url}[/dim]")
+        console.print()
+
+
+@docs.command("list")
+@click.option("--source", "-s", help="Filter by source URL pattern.")
+@click.option("--path", "-p", type=click.Path(exists=True), help="Docs path.")
+def docs_list(source: str | None, path: str | None) -> None:
+    """List indexed documents.
+
+    Examples:
+        psn docs list
+        psn docs list --source anthropic
+    """
+    from rich.table import Table
+
+    from personality.docs import get_doc_indexer
+
+    docs_path = Path(path) if path else Path.home() / "Projects" / "docs"
+    indexer = get_doc_indexer(docs_path)
+    documents = indexer.list_sources()
+    indexer.close()
+
+    if source:
+        documents = [d for d in documents if source in (d.get("source_url") or "")]
+
+    if not documents:
+        console.print("[yellow]No documents indexed.[/yellow]")
+        return
+
+    table = Table(title="Indexed Documents", show_header=True)
+    table.add_column("Title", style="cyan", max_width=40)
+    table.add_column("Path", style="dim", max_width=30)
+    table.add_column("Source", style="white", max_width=40)
+
+    for doc in documents:
+        title = doc.get("title") or ""
+        doc_path = doc.get("path") or ""
+        source_url = doc.get("source_url") or "[dim]local[/dim]"
+        table.add_row(title[:40], doc_path[:30], source_url[:40])
+
+    console.print(table)
+
+
+@docs.command("status")
+@click.option("--path", "-p", type=click.Path(exists=True), help="Docs path.")
+def docs_status(path: str | None) -> None:
+    """Show index status.
+
+    Examples:
+        psn docs status
+    """
+    from personality.docs import get_doc_indexer
+
+    docs_path = Path(path) if path else Path.home() / "Projects" / "docs"
+    indexer = get_doc_indexer(docs_path)
+    info = indexer.status()
+    indexer.close()
+
+    console.print(f"[cyan]Docs Path:[/cyan] {info['docs_path']}")
+    console.print(f"[cyan]Index:[/cyan] {info['db_path']}")
+    console.print(f"[cyan]Documents:[/cyan] {info['document_count']}")
+    console.print(f"[cyan]Chunks:[/cyan] {info['chunk_count']}")
+
+
 def _resolve_text(text: str | None, input_file: str | None) -> str:
     """Resolve text from argument, file, or stdin."""
     if text:
