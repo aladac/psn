@@ -6,9 +6,9 @@
 - [x] Step 1.3: Add Embedder Tests
 
 ## Phase 2: Memory Store
-- [ ] Step 2.1: Create Database Schema
-- [ ] Step 2.2: Implement MemoryStore Class
-- [ ] Step 2.3: Add Memory Store Tests
+- [x] Step 2.1: Create Database Schema
+- [x] Step 2.2: Implement MemoryStore Class
+- [x] Step 2.3: Add Memory Store Tests
 
 ## Phase 3: MCP Memory Tools
 - [ ] Step 3.1: Add stop_speaking Tool
