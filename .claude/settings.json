@@ -1,5 +1,5 @@
 {
-  "$schema": "https://raw.githubusercontent.com/anthropics/claude-code/main/config-schema.json",
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "env": {
     "PERSONALITY_CART": "bt7274"
   },
@@ -33,30 +33,50 @@
   "hooks": {
     "SessionStart": [
       {
-        "type": "command",
-        "command": "uv run psn hook session-start",
-        "timeout": 10000
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run psn hook session-start",
+            "timeout": 10000
+          }
+        ]
       }
     ],
     "SessionEnd": [
       {
-        "type": "command",
-        "command": "uv run psn hook session-end",
-        "timeout": 10000
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run psn hook session-end",
+            "timeout": 10000
+          }
+        ]
       }
     ],
     "Stop": [
       {
-        "type": "command",
-        "command": "uv run psn hook stop",
-        "timeout": 5000
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run psn hook stop",
+            "timeout": 5000
+          }
+        ]
       }
     ],
     "Notification": [
       {
-        "type": "command",
-        "command": "uv run psn hook notify",
-        "timeout": 5000
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run psn hook notify",
+            "timeout": 5000
+          }
+        ]
       }
     ]
   }
