@@ -52,12 +52,26 @@ uv run pytest -k "test_returns_voice"        # by name pattern
 
 ### MCP Server (`mcp/`)
 
-FastMCP-based server exposing:
+Modular FastMCP-based server:
+
+| File | Purpose |
+|------|---------|
+| `server.py` | Server setup, `AppContext` lifespan, `run_server()` entry point |
+| `tools.py` | MCP tool: `speak(text, voice?)` |
+| `resources.py` | MCP resources for cart data |
+| `prompts.py` | MCP prompt templates |
+
+**Exposed interfaces:**
 - **Tool**: `speak(text, voice?)` - synthesize and play audio
 - **Resources**: `personality://cart`, `personality://cart/{name}`, `personality://carts`
 - **Prompt**: `speak(text)` - generate speak command template
 
 The server uses lifespan context (`AppContext`) to hold active cart state. Cart is selected via `PERSONALITY_CART` env var (default: `bt7274`).
+
+### Slash Commands (`commands/`)
+
+Markdown templates installed to `~/.claude/commands/psn/` via `psn install`:
+- `speak.md`, `cart.md`, `carts.md`, `voices.md`, `status.md`
 
 ### Configuration Layout
 

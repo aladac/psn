@@ -2,5 +2,10 @@
   "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
     "personality"
-  ]
+  ],
+  "permissions": {
+    "allow": [
+      "mcp__personality__speak"
+    ]
+  }
 }
