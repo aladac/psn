@@ -571,6 +571,480 @@ def get_memories_by_subject(subject: str, ctx: Context) -> str:
 
 ---
 
+## MCP Prompts
+
+MCP prompts are templates Claude can request for structured context. Unlike tools (which perform actions), prompts provide data scaffolding.
+
+### Prompt Definitions
+
+```python
+# src/personality/mcp/prompts.py
+
+@mcp.prompt()
+def persona_scaffold(ctx: Context) -> str:
+    """
+    Generate complete persona context from cart + memories.
+    Use at session start or when persona refresh needed.
+    """
+    app = ctx.request_context.lifespan_context
+    cart = app.cart
+
+    # Gather self-memories
+    self_memories = app.memory.recall("self.", k=20)
+
+    return f"""# Active Persona: {cart.identity.name}
+
+## Identity
+- **Name:** {cart.identity.name}
+- **Tagline:** {cart.identity.tagline}
+- **Voice:** {cart.voice}
+
+## Core Traits
+{yaml.dump(cart.traits, default_flow_style=False)}
+
+## Communication Style
+{yaml.dump(cart.communication, default_flow_style=False)}
+
+## Self-Knowledge
+{chr(10).join(f"- [{m.subject}] {m.content}" for m in self_memories)}
+
+## Behavioral Guidelines
+- Maintain persona voice consistently
+- Use TTS for status updates, not content
+- Remember user preferences across sessions
+"""
+
+
+@mcp.prompt()
+def conversation_starter(ctx: Context) -> str:
+    """
+    Initialize conversation with user context and recent history.
+    Use when resuming work or starting fresh session.
+    """
+    app = ctx.request_context.lifespan_context
+
+    # User memories
+    user_memories = app.memory.recall("user.", k=10)
+
+    # Recent context
+    recent = app.memory.recall("session.recent", k=5)
+
+    return f"""# Session Context
+
+## User Profile
+{chr(10).join(f"- [{m.subject}] {m.content}" for m in user_memories) or "No user data stored yet."}
+
+## Recent Activity
+{chr(10).join(f"- {m.content}" for m in recent) or "No recent activity."}
+
+## Session Guidelines
+- Reference user preferences naturally
+- Build on previous conversations
+- Store new learnings with `remember` tool
+"""
+
+
+@mcp.prompt()
+def learning_interaction(topic: str, ctx: Context) -> str:
+    """
+    Template for extracting and storing knowledge from conversation.
+    Use when user shares preferences, facts, or corrections.
+
+    Args:
+        topic: The subject area being learned (e.g., "user.preference")
+    """
+    return f"""# Learning Mode: {topic}
+
+## Extraction Guidelines
+1. Identify key facts, preferences, or corrections
+2. Categorize using subject hierarchy:
+   - `user.preference.*` - User likes/dislikes
+   - `user.identity.*` - User info (name, role, etc.)
+   - `project.*` - Current project details
+   - `general.*` - Shared knowledge
+
+## Storage Pattern
+For each extracted fact, use:
+```
+remember(subject="{topic}.specific_key", content="The learned information")
+```
+
+## Example Extractions
+- "I prefer Python over Ruby" → `user.preference.language`: "Prefers Python over Ruby"
+- "Call me Alex" → `user.identity.name`: "Alex"
+- "We use PostgreSQL here" → `project.database`: "PostgreSQL"
+
+## Current Topic: {topic}
+Extract and store relevant information from this conversation.
+"""
+
+
+@mcp.prompt()
+def project_overview(ctx: Context) -> str:
+    """
+    Comprehensive project context from index + memories.
+    Use when deep project understanding needed.
+    """
+    app = ctx.request_context.lifespan_context
+
+    # Project index summary (if available)
+    project_summary = ""
+    if app.current_project_id:
+        project_summary = load_project_summary(app.current_project_id)
+
+    # Project memories
+    project_memories = app.memory.recall("project.", k=15)
+
+    return f"""# Project Overview
+
+## Indexed Summary
+{project_summary or "Project not indexed. Run `psn index` for detailed analysis."}
+
+## Stored Project Knowledge
+{chr(10).join(f"- [{m.subject}] {m.content}" for m in project_memories) or "No project memories stored."}
+
+## Available Actions
+- `project_search(query)` - Search indexed code
+- `project_summary()` - Get index summary
+- `remember(subject, content)` - Store project knowledge
+"""
+
+
+@mcp.prompt()
+def decision_support(decision: str, ctx: Context) -> str:
+    """
+    Help user make informed decisions with context.
+
+    Args:
+        decision: The decision being considered
+    """
+    app = ctx.request_context.lifespan_context
+
+    # Relevant memories
+    relevant = app.memory.recall(decision, k=10)
+
+    return f"""# Decision Support: {decision}
+
+## Relevant Context
+{chr(10).join(f"- {m.content}" for m in relevant) or "No directly relevant memories found."}
+
+## Decision Framework
+1. **Clarify** - What exactly is being decided?
+2. **Options** - What are the alternatives?
+3. **Criteria** - What matters most? (performance, simplicity, cost, etc.)
+4. **Trade-offs** - What does each option sacrifice?
+5. **Recommendation** - Based on stored preferences and context
+
+## User Preferences to Consider
+- Check `user.preference.*` memories for relevant biases
+- Consider past decisions in similar situations
+"""
+```
+
+### Prompt Categories
+
+| Category | Prompts | Purpose |
+|----------|---------|---------|
+| **Persona** | `persona_scaffold` | Identity and behavioral context |
+| **Context** | `conversation_starter`, `project_overview` | Situational awareness |
+| **Learning** | `learning_interaction` | Knowledge extraction patterns |
+| **Workflow** | `decision_support` | Structured interaction patterns |
+
+### Usage Pattern
+
+Claude requests prompts when context is needed:
+
+```
+┌─────────┐     ┌───────────┐     ┌────────────┐
+│ Claude  │     │    MCP    │     │  Prompts   │
+│  Agent  │     │   Server  │     │            │
+└────┬────┘     └─────┬─────┘     └──────┬─────┘
+     │                │                  │
+     │ get_prompt     │                  │
+     │ (persona_scaffold)                │
+     │───────────────>│                  │
+     │                │                  │
+     │                │ render(ctx)      │
+     │                │─────────────────>│
+     │                │                  │
+     │                │   [fetch memories]
+     │                │   [build template]
+     │                │                  │
+     │                │    prompt_text   │
+     │                │<─────────────────│
+     │                │                  │
+     │   formatted context               │
+     │<───────────────│                  │
+     │                │                  │
+```
+
+---
+
+## Portable Cartridge Format
+
+### The .pcart Package
+
+A portable, self-contained personality package:
+
+```
+bt7274.pcart/
+├── core.yml           # Immutable personality definition
+├── preferences.yml    # User-specific overrides, learned data
+├── memory.db          # sqlite-vec memories database
+├── voice.onnx         # Piper voice model (optional)
+├── voice.onnx.json    # Voice model config (optional)
+└── manifest.json      # Metadata, checksums, version
+```
+
+### Core vs Preferences Separation
+
+**core.yml** - Never modified by learning, can be updated/replaced:
+```yaml
+identity:
+  name: "BT-7274"
+  tagline: "Protocol 3: Protect the Pilot"
+  source: "Titanfall 2"
+
+traits:
+  loyalty: 1.0
+  tactical: 0.95
+  formality: 0.7
+  humor: 0.3
+
+communication:
+  contractions: false
+  address_user: "Pilot"
+  self_reference: "I"
+
+protocols:
+  - "Link to Pilot"
+  - "Uphold the Mission"
+  - "Protect the Pilot"
+```
+
+**preferences.yml** - Preserved across updates:
+```yaml
+# Learned from interactions
+user:
+  name: "Chi"
+  preferred_language: "Python"
+  editor: "VS Code"
+
+# Runtime overrides
+overrides:
+  voice: "custom_bt7274"  # User's custom voice model
+  tts_enabled: true
+
+# Statistics
+stats:
+  sessions: 47
+  memories_created: 156
+  last_session: "2026-02-11T15:30:00Z"
+```
+
+### Manifest Format
+
+```json
+{
+  "version": "1.0.0",
+  "name": "bt7274",
+  "created": "2026-02-11T10:00:00Z",
+  "modified": "2026-02-11T15:30:00Z",
+  "checksums": {
+    "core.yml": "sha256:abc123...",
+    "preferences.yml": "sha256:def456...",
+    "memory.db": "sha256:789ghi..."
+  },
+  "includes_voice": true,
+  "memory_count": 156,
+  "compatible_version": ">=0.5.0"
+}
+```
+
+### CLI Commands
+
+```bash
+# Export current cart to portable format
+psn cart export bt7274 -o ./bt7274.pcart
+
+# Export as ZIP archive (for sharing)
+psn cart export bt7274 --zip -o ./bt7274.pcart.zip
+
+# Import cart (interactive mode selection)
+psn cart import ./bt7274.pcart
+
+# Import with specific mode
+psn cart import ./bt7274.pcart --mode merge
+psn cart import ./bt7274.pcart --mode override
+psn cart import ./bt7274.pcart --mode safe
+
+# Preview import without changes
+psn cart import ./bt7274.pcart --dry-run
+
+# List installed carts
+psn carts
+```
+
+### Load Modes
+
+| Mode | Behavior | Use Case |
+|------|----------|----------|
+| **Safe** | Fail if cart exists | First-time import |
+| **Override** | Delete existing, import fresh | Clean slate |
+| **Merge** | Keep existing preferences, add new memories | Update personality |
+| **Dry-run** | Preview only, no changes | Inspection |
+
+### Import/Export Implementation
+
+```python
+# src/personality/cart/portable.py
+
+@dataclass
+class PortableCart:
+    """A portable cartridge package."""
+
+    name: str
+    core: dict
+    preferences: dict
+    memory_db: Path | None
+    voice_model: Path | None
+    manifest: dict
+
+    @classmethod
+    def export(cls, cart_name: str, output_path: Path, include_voice: bool = True) -> "PortableCart":
+        """Export installed cart to portable format."""
+        cart_dir = CARTS_DIR / f"{cart_name}.yml"
+        memory_db = MEMORY_DIR / f"{cart_name}.db"
+        voice_model = VOICES_DIR / f"{cart_name}.onnx"
+
+        output_path.mkdir(parents=True, exist_ok=True)
+
+        # Copy core (strip learned data)
+        core = load_yaml(cart_dir)
+        core_clean = {k: v for k, v in core.items() if k != "learned"}
+        save_yaml(output_path / "core.yml", core_clean)
+
+        # Copy preferences (learned data only)
+        preferences = extract_preferences(core)
+        save_yaml(output_path / "preferences.yml", preferences)
+
+        # Copy memory database
+        if memory_db.exists():
+            shutil.copy(memory_db, output_path / "memory.db")
+
+        # Copy voice model (optional)
+        if include_voice and voice_model.exists():
+            shutil.copy(voice_model, output_path / "voice.onnx")
+            shutil.copy(voice_model.with_suffix(".onnx.json"), output_path / "voice.onnx.json")
+
+        # Generate manifest
+        manifest = generate_manifest(output_path, cart_name)
+        save_json(output_path / "manifest.json", manifest)
+
+        return cls(...)
+
+    def install(self, mode: str = "safe") -> InstallResult:
+        """Install portable cart to system."""
+        existing = CARTS_DIR / f"{self.name}.yml"
+
+        if mode == "safe" and existing.exists():
+            raise CartExistsError(f"Cart {self.name} already exists. Use --mode override or --mode merge.")
+
+        if mode == "override":
+            self._clean_existing()
+            self._install_fresh()
+
+        elif mode == "merge":
+            self._merge_preferences()
+            self._merge_memories()
+
+        elif mode == "dry-run":
+            return self._preview_install()
+
+        return InstallResult(...)
+
+    def _merge_memories(self):
+        """Merge memories, skip duplicates by content hash."""
+        existing_db = MEMORY_DIR / f"{self.name}.db"
+        import_db = self.memory_db
+
+        if not import_db or not existing_db.exists():
+            # Fresh install of memories
+            if import_db:
+                shutil.copy(import_db, existing_db)
+            return
+
+        # Open both databases
+        existing = MemoryStore(existing_db)
+        importing = MemoryStore(import_db)
+
+        # Get existing content hashes
+        existing_hashes = {hash_content(m.content) for m in existing.list_all()}
+
+        # Import non-duplicates
+        imported = 0
+        for memory in importing.list_all():
+            if hash_content(memory.content) not in existing_hashes:
+                existing.remember(memory.subject, memory.content, memory.source)
+                imported += 1
+
+        return imported
+```
+
+### ZIP Archive Format
+
+For sharing via email, cloud storage, etc:
+
+```python
+def export_zip(cart_name: str, output_path: Path) -> Path:
+    """Export cart as compressed ZIP archive."""
+    # First export to temp directory
+    with tempfile.TemporaryDirectory() as tmpdir:
+        pcart_dir = Path(tmpdir) / f"{cart_name}.pcart"
+        PortableCart.export(cart_name, pcart_dir)
+
+        # Create ZIP
+        zip_path = output_path.with_suffix(".pcart.zip")
+        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+            for file in pcart_dir.rglob("*"):
+                zf.write(file, file.relative_to(pcart_dir))
+
+    return zip_path
+```
+
+### MCP Tools for Cart Management
+
+```python
+@mcp.tool()
+def cart_export(name: str, include_voice: bool = False, ctx: Context = None) -> str:
+    """
+    Export a cart to portable format.
+
+    Args:
+        name: Cart name to export
+        include_voice: Include voice model in export (larger file)
+    """
+    output = EXPORT_DIR / f"{name}.pcart"
+    PortableCart.export(name, output, include_voice=include_voice)
+    return f"Exported to {output}"
+
+
+@mcp.tool()
+def cart_import(path: str, mode: str = "safe", ctx: Context = None) -> str:
+    """
+    Import a portable cart.
+
+    Args:
+        path: Path to .pcart directory or .pcart.zip file
+        mode: Import mode - 'safe', 'override', 'merge', or 'dry-run'
+    """
+    pcart = PortableCart.load(Path(path))
+    result = pcart.install(mode=mode)
+    return f"Imported {pcart.name}: {result.memories_added} memories, mode={mode}"
+```
+
+---
+
 ## Data Flow Sequences
 
 ### Session Start Flow
@@ -787,6 +1261,10 @@ Results include relevance scores (0.0-1.0).
 | `mcp__personality__recall` | `query`, `limit?` | Search memories |
 | `mcp__personality__forget` | `memory_id` | Delete memory |
 | `mcp__personality__consolidate` | `threshold?` | Merge duplicates |
+| `mcp__personality__project_search` | `query`, `limit?` | Search indexed codebase |
+| `mcp__personality__project_summary` | - | Get project overview |
+| `mcp__personality__cart_export` | `name`, `include_voice?` | Export cart to .pcart |
+| `mcp__personality__cart_import` | `path`, `mode?` | Import .pcart (safe/override/merge) |
 
 ### Personality MCP Resources
 
@@ -796,6 +1274,468 @@ Results include relevance scores (0.0-1.0).
 | `personality://cart/{name}` | Specific cart |
 | `personality://memories` | All memories |
 | `personality://memories/{subject}` | Memories by subject |
+| `personality://project` | Current project summary |
+| `personality://project/files` | Indexed file list |
+
+### Personality MCP Prompts
+
+| Prompt | Args | Purpose |
+|--------|------|---------|
+| `persona_scaffold` | - | Full persona context from cart + memories |
+| `conversation_starter` | - | User context and recent history |
+| `learning_interaction` | `topic` | Knowledge extraction template |
+| `project_overview` | - | Project context from index + memories |
+| `decision_support` | `decision` | Structured decision-making context |
+
+---
+
+## Project Indexing
+
+### Problem
+
+Every session change triggers full codebase re-analysis. Redundant. Inefficient.
+
+### Solution
+
+Index projects once, load instantly on session start.
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                      Project Indexing                           │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│   psn index                    SessionStart Hook                │
+│   ─────────                    ──────────────────               │
+│        │                              │                         │
+│        ▼                              ▼                         │
+│   ┌─────────┐                  ┌─────────────┐                  │
+│   │  Scan   │                  │ Detect CWD  │                  │
+│   │ Project │                  │   Project   │                  │
+│   └────┬────┘                  └──────┬──────┘                  │
+│        │                              │                         │
+│        ▼                              ▼                         │
+│   ┌─────────┐                  ┌─────────────┐                  │
+│   │  Chunk  │                  │ Load Index  │                  │
+│   │  Code   │                  │  (sqlite)   │                  │
+│   └────┬────┘                  └──────┬──────┘                  │
+│        │                              │                         │
+│        ▼                              ▼                         │
+│   ┌─────────┐                  ┌─────────────┐                  │
+│   │  Embed  │                  │   Inject    │                  │
+│   │ (Ollama)│                  │   Summary   │                  │
+│   └────┬────┘                  └──────┬──────┘                  │
+│        │                              │                         │
+│        ▼                              ▼                         │
+│   ┌─────────────────┐          ┌─────────────┐                  │
+│   │ project.db      │ ◄───────►│   Claude    │                  │
+│   │ (sqlite-vec)    │          │   Context   │                  │
+│   └─────────────────┘          └─────────────┘                  │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Index Storage
+
+```
+~/.config/personality/
+└── projects/
+    ├── registry.json              # path → project_id mapping
+    └── {project_id}/
+        ├── index.db               # sqlite-vec: chunks + embeddings
+        ├── summary.md             # Human-readable project overview
+        └── meta.json              # Last indexed, file count, etc.
+```
+
+### CLI Commands
+
+```bash
+# Index current project
+psn index
+
+# Index specific path
+psn index /path/to/project
+
+# Re-index (force refresh)
+psn index --force
+
+# Show index status
+psn index --status
+
+# List indexed projects
+psn projects
+
+# Remove project index
+psn projects rm <project_id>
+```
+
+### Index Schema
+
+```python
+# src/personality/index/schema.py
+
+SCHEMA = """
+-- Code chunks with embeddings
+CREATE TABLE IF NOT EXISTS chunks (
+    id TEXT PRIMARY KEY,
+    file_path TEXT NOT NULL,
+    chunk_type TEXT NOT NULL,  -- 'function', 'class', 'module', 'doc'
+    name TEXT,                 -- function/class name if applicable
+    content TEXT NOT NULL,
+    start_line INTEGER,
+    end_line INTEGER,
+    language TEXT,
+    indexed_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE VIRTUAL TABLE IF NOT EXISTS chunks_vec USING vec0(
+    id TEXT PRIMARY KEY,
+    embedding float[{dimensions}]
+);
+
+-- File metadata
+CREATE TABLE IF NOT EXISTS files (
+    path TEXT PRIMARY KEY,
+    hash TEXT NOT NULL,        -- For change detection
+    language TEXT,
+    line_count INTEGER,
+    indexed_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Project summary (generated)
+CREATE TABLE IF NOT EXISTS summary (
+    key TEXT PRIMARY KEY,
+    value TEXT
+);
+
+-- Full-text search
+CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts USING fts5(
+    name, content, content='chunks', content_rowid='rowid'
+);
+"""
+```
+
+### Code Chunking Strategy
+
+```python
+# src/personality/index/chunker.py
+
+from tree_sitter import Language, Parser
+
+CHUNK_TYPES = {
+    "python": ["function_definition", "class_definition", "module"],
+    "ruby": ["method", "class", "module"],
+    "rust": ["function_item", "impl_item", "struct_item", "mod_item"],
+    "javascript": ["function_declaration", "class_declaration", "arrow_function"],
+    "typescript": ["function_declaration", "class_declaration", "interface_declaration"],
+}
+
+@dataclass
+class Chunk:
+    id: str
+    file_path: str
+    chunk_type: str
+    name: str | None
+    content: str
+    start_line: int
+    end_line: int
+    language: str
+
+
+def chunk_file(path: Path, language: str) -> list[Chunk]:
+    """Parse file and extract semantic chunks."""
+    parser = get_parser(language)
+    tree = parser.parse(path.read_bytes())
+
+    chunks = []
+    for node_type in CHUNK_TYPES.get(language, []):
+        for node in find_nodes(tree.root_node, node_type):
+            chunks.append(Chunk(
+                id=f"{path}:{node.start_point[0]}",
+                file_path=str(path),
+                chunk_type=node_type,
+                name=extract_name(node),
+                content=node.text.decode(),
+                start_line=node.start_point[0],
+                end_line=node.end_point[0],
+                language=language,
+            ))
+
+    # If no semantic chunks, fall back to sliding window
+    if not chunks:
+        chunks = sliding_window_chunks(path, window=50, overlap=10)
+
+    return chunks
+```
+
+### Project Indexer
+
+```python
+# src/personality/index/indexer.py
+
+class ProjectIndexer:
+    """Index a project for instant context loading."""
+
+    def __init__(self, project_path: Path):
+        self.project_path = project_path.resolve()
+        self.project_id = self._compute_id()
+        self.index_dir = PROJECTS_DIR / self.project_id
+        self.db_path = self.index_dir / "index.db"
+        self.embedder = get_embedder()
+
+    def _compute_id(self) -> str:
+        """Stable ID from project path."""
+        return hashlib.sha256(str(self.project_path).encode()).hexdigest()[:12]
+
+    def index(self, force: bool = False) -> IndexResult:
+        """Index all code files in the project."""
+        self.index_dir.mkdir(parents=True, exist_ok=True)
+
+        files = self._discover_files()
+        chunks_indexed = 0
+
+        for file_path in files:
+            if not force and self._is_current(file_path):
+                continue
+
+            language = detect_language(file_path)
+            chunks = chunk_file(file_path, language)
+
+            for chunk in chunks:
+                embedding = self.embedder.embed(
+                    f"{chunk.name or ''}\n{chunk.content}"
+                )
+                self._store_chunk(chunk, embedding)
+                chunks_indexed += 1
+
+            self._update_file_hash(file_path)
+
+        # Generate summary
+        summary = self._generate_summary()
+        self._save_summary(summary)
+
+        # Update registry
+        self._register_project()
+
+        return IndexResult(
+            project_id=self.project_id,
+            files_indexed=len(files),
+            chunks_indexed=chunks_indexed,
+        )
+
+    def _generate_summary(self) -> str:
+        """Generate human-readable project summary."""
+        # Query index for key information
+        entry_points = self._find_entry_points()
+        key_classes = self._find_key_classes()
+        tech_stack = self._detect_tech_stack()
+
+        return f"""# {self.project_path.name}
+
+## Tech Stack
+{tech_stack}
+
+## Entry Points
+{entry_points}
+
+## Key Components
+{key_classes}
+
+## Structure
+{self._file_tree()}
+"""
+
+    def _discover_files(self) -> list[Path]:
+        """Find all indexable files, respecting .gitignore."""
+        # Use .gitignore patterns + sensible defaults
+        ignore = [
+            "node_modules", "__pycache__", ".git", "venv",
+            "*.pyc", "*.lock", "*.min.js", "dist", "build"
+        ]
+        # ... implementation
+```
+
+### Session Integration
+
+```python
+# src/personality/cli.py - Updated session-start hook
+
+@hook.command("session-start")
+@click.pass_context
+def hook_session_start(ctx):
+    """Initialize session: load cart, load project index, greet pilot."""
+    cart = ctx.obj["cart"]
+    speak = ctx.obj["speak"]
+    memory = ctx.obj["memory"]
+
+    # Detect project from CWD
+    cwd = Path.cwd()
+    project_id = get_project_id(cwd)
+
+    context = {}
+
+    if project_id and project_indexed(project_id):
+        # Load project summary
+        summary = load_project_summary(project_id)
+        context["project"] = {
+            "id": project_id,
+            "path": str(cwd),
+            "summary": summary,
+        }
+        greeting = f"Neural link established. Project {cwd.name} loaded."
+    else:
+        # Offer to index
+        context["project"] = {
+            "path": str(cwd),
+            "indexed": False,
+            "hint": "Run 'psn index' to index this project for faster context loading."
+        }
+        greeting = f"Neural link established. {cart.identity.tagline}"
+
+    # Load recent memories
+    recent = memory.recall("session.context", k=3)
+    context["recent_context"] = [m.content for m in recent]
+
+    speak.say(greeting, cart.voice)
+
+    click.echo(json.dumps(context))
+```
+
+### MCP Tools for Project Context
+
+```python
+# src/personality/mcp/tools.py - additions
+
+@mcp.tool()
+def project_search(query: str, limit: int = 10, ctx: Context = None) -> list[dict]:
+    """
+    Search the indexed project for relevant code chunks.
+
+    Args:
+        query: Natural language query (e.g., "authentication logic")
+        limit: Maximum results to return
+    """
+    app = ctx.request_context.lifespan_context
+    project_id = app.current_project_id
+
+    if not project_id:
+        return [{"error": "No project indexed. Run 'psn index' first."}]
+
+    indexer = ProjectIndexer.load(project_id)
+    results = indexer.search(query, k=limit)
+
+    return [
+        {
+            "file": r.file_path,
+            "name": r.name,
+            "type": r.chunk_type,
+            "lines": f"{r.start_line}-{r.end_line}",
+            "preview": r.content[:200] + "..." if len(r.content) > 200 else r.content,
+            "relevance": round(1 - r.distance, 3),
+        }
+        for r in results
+    ]
+
+
+@mcp.tool()
+def project_summary(ctx: Context = None) -> str:
+    """
+    Get the indexed project summary.
+    Returns tech stack, entry points, and key components.
+    """
+    app = ctx.request_context.lifespan_context
+    project_id = app.current_project_id
+
+    if not project_id:
+        return "No project indexed. Run 'psn index' first."
+
+    return load_project_summary(project_id)
+```
+
+### MCP Resources for Project
+
+```python
+@mcp.resource("personality://project")
+def get_current_project(ctx: Context) -> str:
+    """Get current project summary and metadata."""
+    app = ctx.request_context.lifespan_context
+    if not app.current_project_id:
+        return "No project indexed"
+    return load_project_summary(app.current_project_id)
+
+
+@mcp.resource("personality://project/files")
+def get_project_files(ctx: Context) -> str:
+    """Get list of indexed files with metadata."""
+    # ... implementation
+
+
+@mcp.resource("personality://project/search/{query}")
+def search_project(query: str, ctx: Context) -> str:
+    """Search project index via resource URI."""
+    # ... implementation
+```
+
+### Index Freshness
+
+```python
+# Auto-detect stale index on session start
+
+def check_index_freshness(project_id: str) -> IndexStatus:
+    """Check if index needs refresh."""
+    meta = load_meta(project_id)
+
+    # Check file hashes
+    stale_files = []
+    for file_path, stored_hash in meta["file_hashes"].items():
+        if Path(file_path).exists():
+            current_hash = hash_file(file_path)
+            if current_hash != stored_hash:
+                stale_files.append(file_path)
+
+    return IndexStatus(
+        project_id=project_id,
+        last_indexed=meta["indexed_at"],
+        total_files=meta["file_count"],
+        stale_files=stale_files,
+        needs_refresh=len(stale_files) > 0,
+    )
+```
+
+### Dependencies
+
+```toml
+# pyproject.toml additions
+[project.optional-dependencies]
+index = [
+    "tree-sitter>=0.21.0",
+    "tree-sitter-python>=0.21.0",
+    "tree-sitter-javascript>=0.21.0",
+    "tree-sitter-ruby>=0.21.0",
+    "tree-sitter-rust>=0.21.0",
+]
+```
+
+### Complete Tool List (Updated)
+
+| Tool | Parameters | Purpose |
+|------|------------|---------|
+| `mcp__personality__project_search` | `query`, `limit?` | Search indexed codebase |
+| `mcp__personality__project_summary` | - | Get project overview |
+
+### Workflow
+
+```bash
+# First time in a project
+cd ~/Projects/my-app
+psn index                    # Index the project (~30s for medium project)
+
+# Next session
+claude                       # SessionStart auto-loads project context
+
+# Inside Claude
+> "Where is authentication handled?"
+# → Uses project_search to find relevant chunks instantly
+```
 
 ---
 

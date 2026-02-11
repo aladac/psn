@@ -12,6 +12,29 @@ Tools exposed by the personality MCP server as Claude perceives them:
 - `mcp__personality__recall` - Search memories using hybrid vector + full-text search
 - `mcp__personality__forget` - Delete a specific memory by ID
 - `mcp__personality__consolidate` - Merge similar memories to reduce redundancy
+- `mcp__personality__project_search` - Search indexed codebase for relevant code chunks
+- `mcp__personality__project_summary` - Get project overview (tech stack, entry points, components)
+- `mcp__personality__cart_export` - Export cart to portable .pcart format
+- `mcp__personality__cart_import` - Import .pcart with mode (safe/override/merge/dry-run)
+
+## Personality MCP Prompts
+
+Templates Claude can request for structured context:
+
+- `persona_scaffold` - Generate full persona context from cart + memories
+- `conversation_starter` - Initialize with user context and recent history
+- `learning_interaction(topic)` - Knowledge extraction template for a topic
+- `project_overview` - Comprehensive project context from index + memories
+- `decision_support(decision)` - Structured decision-making context
+
+## Personality MCP Resources
+
+- `personality://cart` - Current cart data
+- `personality://cart/{name}` - Specific cart by name
+- `personality://memories` - All stored memories
+- `personality://memories/{subject}` - Memories by subject prefix
+- `personality://project` - Current project summary
+- `personality://project/files` - Indexed file list
 
 ## Base Claude Code Tools
 
