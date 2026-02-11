@@ -2,10 +2,18 @@
   "permissions": {
     "allow": [
       "mcp__personality__speak",
-      "mcp__personality__recall",
+      "mcp__personality__stop_speaking",
       "mcp__personality__remember",
-      "mcp__personality__self_test",
-      "mcp__personality__consolidate"
+      "mcp__personality__recall",
+      "mcp__personality__forget",
+      "mcp__personality__consolidate",
+      "mcp__personality__project_search",
+      "mcp__personality__project_summary",
+      "mcp__personality__cart_export",
+      "mcp__personality__cart_import",
+      "mcp__personality__docs_search",
+      "mcp__personality__docs_index",
+      "mcp__personality__self_test"
     ]
   },
   "enableAllProjectMcpServers": true,
