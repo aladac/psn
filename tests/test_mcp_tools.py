@@ -13,7 +13,7 @@ class TestGetCtx:
     """Tests for _get_ctx helper function."""
 
     def test_extracts_app_context(self) -> None:
-        app_ctx = AppContext(cart_name="test", cart_data=None, voice_dir="/voices")
+        app_ctx = AppContext(cart_name="test", cart_data=None, voice_dir="/voices", memory=None)
         mock_ctx = MagicMock()
         mock_ctx.request_context.lifespan_context = app_ctx
         result = _get_ctx(mock_ctx)
@@ -30,6 +30,7 @@ class TestSpeakTool:
             cart_name="test",
             cart_data={"preferences": {"speak": {"voice": "cart_voice"}}},
             voice_dir="/tmp/voices",
+            memory=None,
         )
         ctx = MagicMock()
         ctx.request_context.lifespan_context = app_ctx
@@ -38,7 +39,7 @@ class TestSpeakTool:
     @pytest.fixture
     def mock_context_no_cart(self) -> MagicMock:
         """Create a mock MCP context with no cart data."""
-        app_ctx = AppContext(cart_name="fallback", cart_data=None, voice_dir="/tmp/voices")
+        app_ctx = AppContext(cart_name="fallback", cart_data=None, voice_dir="/tmp/voices", memory=None)
         ctx = MagicMock()
         ctx.request_context.lifespan_context = app_ctx
         return ctx

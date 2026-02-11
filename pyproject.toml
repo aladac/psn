@@ -10,10 +10,12 @@ requires-python = ">=3.12"
 dependencies = [
     "click>=8.1.0",
     "mcp>=1.20.0",
+    "numpy>=1.26.0",
     "ollama>=0.4.0",
     "piper-tts>=1.2.0",
     "pyyaml>=6.0",
     "rich>=13.0.0",
+    "sounddevice>=0.4.6",
     "sqlite-vec>=0.1.0",
 ]
 

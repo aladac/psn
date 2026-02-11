@@ -11,11 +11,11 @@
 - [x] Step 2.3: Add Memory Store Tests
 
 ## Phase 3: MCP Memory Tools
-- [ ] Step 3.1: Add stop_speaking Tool
-- [ ] Step 3.2: Update AppContext with Memory
-- [ ] Step 3.3: Implement Memory Tools
-- [ ] Step 3.4: Add Memory Resources
-- [ ] Step 3.5: Add MCP Memory Tests
+- [x] Step 3.1: Add stop_speaking Tool
+- [x] Step 3.2: Update AppContext with Memory
+- [x] Step 3.3: Implement Memory Tools
+- [x] Step 3.4: Add Memory Resources
+- [x] Step 3.5: Add MCP Memory Tests
 
 ## Phase 4: Hook Integration
 - [ ] Step 4.1: Create Hook CLI Group

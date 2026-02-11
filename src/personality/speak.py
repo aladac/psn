@@ -1,11 +1,11 @@
-"""Voice synthesis using Piper TTS."""
+"""Voice synthesis using Piper TTS with sounddevice playback."""
 
-import io
 import logging
-import subprocess
 import wave
 from pathlib import Path
 
+import numpy as np
+import sounddevice as sd
 from piper import PiperVoice
 
 logger = logging.getLogger(__name__)
@@ -15,7 +15,7 @@ CHANNELS = 1  # Mono
 
 
 class Speak:
-    """Piper TTS voice synthesizer."""
+    """Piper TTS voice synthesizer with in-process audio playback."""
 
     def __init__(self, voice_dir: Path) -> None:
         """Initialize with voice directory.
@@ -35,10 +35,14 @@ class Speak:
 
         Raises:
             FileNotFoundError: If voice model not found.
-            RuntimeError: If no audio player available.
         """
-        wav_data = self._synthesize(text, voice)
-        self._play(wav_data)
+        piper_voice = self._load_voice(voice)
+        sample_rate = self._get_sample_rate(piper_voice, text)
+        audio_bytes = self._collect_audio(piper_voice, text)
+
+        audio_array = np.frombuffer(audio_bytes, dtype=np.int16)
+        sd.play(audio_array, samplerate=sample_rate)
+        sd.wait()
 
     def save(self, text: str, voice: str, output_path: Path) -> None:
         """Synthesize text and save to WAV file.
@@ -61,6 +65,20 @@ class Speak:
             wav_file.setframerate(sample_rate)
             wav_file.writeframes(audio_bytes)
 
+    @staticmethod
+    def stop() -> bool:
+        """Stop any currently playing audio. Returns True if audio was playing."""
+        try:
+            status = sd.get_stream()
+            if status and status.active:
+                sd.stop()
+                logger.info("Stopped active playback")
+                return True
+        except Exception:
+            pass
+        sd.stop()
+        return False
+
     def _load_voice(self, voice: str) -> PiperVoice:
         """Load and cache voice model."""
         if voice in self._cache:
@@ -79,22 +97,6 @@ class Speak:
         self._cache[voice] = piper_voice
         return piper_voice
 
-    def _synthesize(self, text: str, voice: str) -> bytes:
-        """Synthesize text to WAV bytes."""
-        piper_voice = self._load_voice(voice)
-        sample_rate = self._get_sample_rate(piper_voice, text)
-        audio_bytes = self._collect_audio(piper_voice, text)
-
-        buffer = io.BytesIO()
-        with wave.open(buffer, "wb") as wav_file:
-            wav_file.setnchannels(CHANNELS)
-            wav_file.setsampwidth(SAMPLE_WIDTH)
-            wav_file.setframerate(sample_rate)
-            wav_file.writeframes(audio_bytes)
-
-        buffer.seek(0)
-        return buffer.read()
-
     def _collect_audio(self, piper_voice: PiperVoice, text: str) -> bytes:
         """Collect audio chunks from synthesizer."""
         audio_bytes = b""
@@ -107,26 +109,3 @@ class Speak:
         for chunk in piper_voice.synthesize(text[:10]):
             return chunk.sample_rate
         return 22050  # Default fallback
-
-    def _play(self, wav_data: bytes) -> None:
-        """Play WAV data using available audio player."""
-        players = [
-            ("ffplay", ["-nodisp", "-autoexit", "-"]),
-            ("afplay", ["-"]),  # macOS
-            ("aplay", ["-"]),  # Linux
-        ]
-
-        for player, args in players:
-            try:
-                result = subprocess.run(
-                    [player, *args],
-                    input=wav_data,
-                    capture_output=True,
-                    check=False,
-                )
-                if result.returncode == 0:
-                    return
-            except FileNotFoundError:
-                continue
-
-        raise RuntimeError("No audio player found (ffplay, afplay, or aplay)")

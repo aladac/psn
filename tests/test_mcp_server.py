@@ -12,17 +12,21 @@ class TestAppContext:
     """Tests for AppContext dataclass."""
 
     def test_stores_cart_name(self) -> None:
-        ctx = AppContext(cart_name="test", cart_data=None, voice_dir="/voices")
+        ctx = AppContext(cart_name="test", cart_data=None, voice_dir="/voices", memory=None)
         assert ctx.cart_name == "test"
 
     def test_stores_cart_data(self) -> None:
         data = {"preferences": {"identity": {"name": "Test"}}}
-        ctx = AppContext(cart_name="test", cart_data=data, voice_dir="/voices")
+        ctx = AppContext(cart_name="test", cart_data=data, voice_dir="/voices", memory=None)
         assert ctx.cart_data == data
 
     def test_stores_voice_dir(self) -> None:
-        ctx = AppContext(cart_name="test", cart_data=None, voice_dir="/custom/voices")
+        ctx = AppContext(cart_name="test", cart_data=None, voice_dir="/custom/voices", memory=None)
         assert ctx.voice_dir == "/custom/voices"
+
+    def test_stores_memory(self) -> None:
+        ctx = AppContext(cart_name="test", cart_data=None, voice_dir="/voices", memory=None)
+        assert ctx.memory is None
 
 
 class TestGetActiveCart:

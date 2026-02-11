@@ -25,7 +25,6 @@ class TestSpeak:
             speaker._load_voice("nonexistent")
 
     def test_load_voice_raises_when_config_not_found(self, tmp_path: Path) -> None:
-        # Create model file but no config
         (tmp_path / "test.onnx").touch()
         speaker = Speak(tmp_path)
         with pytest.raises(FileNotFoundError, match="Voice config not found"):
@@ -42,42 +41,10 @@ class TestSpeak:
         assert voice1 is voice2
         assert "test" in speaker._cache
 
-    def test_play_raises_when_no_player_available(self, tmp_path: Path) -> None:
-        speaker = Speak(tmp_path)
-        with (
-            patch("subprocess.run", side_effect=FileNotFoundError),
-            pytest.raises(RuntimeError, match="No audio player found"),
-        ):
-            speaker._play(b"fake wav data")
-
-    def test_play_succeeds_with_first_player(self, tmp_path: Path) -> None:
-        speaker = Speak(tmp_path)
-        mock_result = MagicMock()
-        mock_result.returncode = 0
-        with patch("subprocess.run", return_value=mock_result):
-            speaker._play(b"fake wav data")
-
-    def test_play_tries_next_player_on_failure(self, tmp_path: Path) -> None:
-        speaker = Speak(tmp_path)
-        call_count = 0
-
-        def mock_run(*args, **kwargs):
-            nonlocal call_count
-            call_count += 1
-            if call_count == 1:
-                raise FileNotFoundError()
-            result = MagicMock()
-            result.returncode = 0
-            return result
-
-        with patch("subprocess.run", side_effect=mock_run):
-            speaker._play(b"fake wav data")
-        assert call_count == 2
-
     def test_get_sample_rate_returns_fallback(self, tmp_path: Path) -> None:
         speaker = Speak(tmp_path)
         mock_voice = MagicMock()
-        mock_voice.synthesize.return_value = iter([])  # Empty iterator
+        mock_voice.synthesize.return_value = iter([])
         result = speaker._get_sample_rate(mock_voice, "test")
         assert result == 22050
 
@@ -101,15 +68,20 @@ class TestSpeak:
         result = speaker._collect_audio(mock_voice, "test")
         assert result == b"chunk1chunk2"
 
-    def test_say_synthesizes_and_plays(self, tmp_path: Path) -> None:
+    @patch("personality.speak.sd")
+    def test_say_synthesizes_and_plays(self, mock_sd: MagicMock, tmp_path: Path) -> None:
         speaker = Speak(tmp_path)
-        with (
-            patch.object(speaker, "_synthesize", return_value=b"wav data") as mock_synth,
-            patch.object(speaker, "_play") as mock_play,
-        ):
+        mock_voice = MagicMock()
+        mock_chunk = MagicMock()
+        mock_chunk.sample_rate = 22050
+        mock_chunk.audio_int16_bytes = b"\x00\x01\x02\x03"
+        mock_voice.synthesize.return_value = [mock_chunk]
+
+        with patch.object(speaker, "_load_voice", return_value=mock_voice):
             speaker.say("hello", "voice")
-        mock_synth.assert_called_once_with("hello", "voice")
-        mock_play.assert_called_once_with(b"wav data")
+
+        mock_sd.play.assert_called_once()
+        mock_sd.wait.assert_called_once()
 
     def test_save_writes_wav_file(self, tmp_path: Path) -> None:
         speaker = Speak(tmp_path)
@@ -123,16 +95,28 @@ class TestSpeak:
             speaker.save("hello", "voice", output_file)
         assert output_file.exists()
 
-    def test_synthesize_returns_wav_bytes(self, tmp_path: Path) -> None:
-        speaker = Speak(tmp_path)
-        mock_voice = MagicMock()
-        mock_chunk = MagicMock()
-        mock_chunk.sample_rate = 22050
-        mock_chunk.audio_int16_bytes = b"\x00\x01"
-        mock_voice.synthesize.return_value = [mock_chunk]
-        with patch.object(speaker, "_load_voice", return_value=mock_voice):
-            result = speaker._synthesize("hello", "voice")
-        assert isinstance(result, bytes)
-        assert len(result) > 0
-        # WAV files start with RIFF header
-        assert result[:4] == b"RIFF"
+
+class TestSpeakStop:
+    """Tests for Speak.stop() static method."""
+
+    @patch("personality.speak.sd")
+    def test_stop_calls_sd_stop(self, mock_sd: MagicMock) -> None:
+        mock_sd.get_stream.return_value = None
+        result = Speak.stop()
+        mock_sd.stop.assert_called()
+        assert result is False
+
+    @patch("personality.speak.sd")
+    def test_stop_returns_true_when_active(self, mock_sd: MagicMock) -> None:
+        mock_stream = MagicMock()
+        mock_stream.active = True
+        mock_sd.get_stream.return_value = mock_stream
+        result = Speak.stop()
+        assert result is True
+
+    @patch("personality.speak.sd")
+    def test_stop_handles_exception(self, mock_sd: MagicMock) -> None:
+        mock_sd.get_stream.side_effect = Exception("test error")
+        result = Speak.stop()
+        mock_sd.stop.assert_called()
+        assert result is False

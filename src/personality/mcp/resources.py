@@ -1,6 +1,10 @@
 """MCP Resources for Personality."""
 
 import logging
+import os
+
+from mcp.server.fastmcp import Context
+from mcp.server.session import ServerSession
 
 from personality.config import (
     get_cart_identity,
@@ -8,9 +12,14 @@ from personality.config import (
     list_carts,
     load_cart,
 )
-from personality.mcp.server import mcp
+from personality.mcp.server import AppContext, mcp
 
 logger = logging.getLogger(__name__)
+
+
+def _get_ctx(ctx: Context[ServerSession, AppContext]) -> AppContext:
+    """Extract typed AppContext from request context."""
+    return ctx.request_context.lifespan_context
 
 
 @mcp.resource("personality://cart")
@@ -20,8 +29,6 @@ def get_current_cart() -> str:
 
     Returns the active cart's identity, voice, and memories.
     """
-    import os
-
     cart_name = os.environ.get("PERSONALITY_CART", "bt7274")
     return _format_cart(cart_name)
 
@@ -94,5 +101,50 @@ def _format_cart(name: str) -> str:
             lines.append(f"- **{subject}**: {content[:100]}")
         if len(memories) > 10:
             lines.append(f"\n*...and {len(memories) - 10} more memories*")
+
+    return "\n".join(lines)
+
+
+@mcp.resource("personality://memories")
+def list_memories(ctx: Context[ServerSession, AppContext]) -> str:
+    """List all stored memories."""
+    app = _get_ctx(ctx)
+    if not app.memory:
+        return "Memory store not initialized"
+
+    memories = app.memory.list_all()
+    if not memories:
+        return "No memories stored"
+
+    lines = ["# Memories\n"]
+    for mem in memories[:50]:  # Limit display
+        lines.append(f"- **[{mem.id}] {mem.subject}**: {mem.content[:80]}...")
+    if len(memories) > 50:
+        lines.append(f"\n*...and {len(memories) - 50} more*")
+
+    return "\n".join(lines)
+
+
+@mcp.resource("personality://memories/{subject}")
+def get_memories_by_subject(
+    subject: str,
+    ctx: Context[ServerSession, AppContext],
+) -> str:
+    """Get memories matching a subject prefix."""
+    app = _get_ctx(ctx)
+    if not app.memory:
+        return "Memory store not initialized"
+
+    all_memories = app.memory.list_all()
+    matches = [m for m in all_memories if m.subject.startswith(subject)]
+
+    if not matches:
+        return f"No memories found with subject starting with: {subject}"
+
+    lines = [f"# Memories: {subject}\n"]
+    for mem in matches:
+        lines.append(f"## [{mem.id}] {mem.subject}\n")
+        lines.append(mem.content)
+        lines.append(f"\n*Created: {mem.created_at}, Accessed: {mem.accessed_at}*\n")
 
     return "\n".join(lines)
