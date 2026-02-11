@@ -337,3 +337,66 @@ class TestHookCommands:
             result = runner.invoke(main, ["hook", "notify", "-m", "Hello"])
         assert result.exit_code == 0
         mock_notify.assert_called_once()
+
+
+class TestCartCommand:
+    """Tests for cart command group."""
+
+    def test_cart_export(self, tmp_path: Path) -> None:
+        runner = CliRunner()
+        output = tmp_path / "export"
+        mock_pcart = MagicMock()
+        mock_pcart.manifest.cart_name = "test"
+        mock_pcart.manifest.components = {"core": True}
+
+        with patch("personality.cart.PortableCart.export", return_value=mock_pcart):
+            result = runner.invoke(main, ["cart", "export", "test", "-o", str(output)])
+
+        assert result.exit_code == 0
+        assert "Exported" in result.output
+
+    def test_cart_export_error(self) -> None:
+        runner = CliRunner()
+        with patch("personality.cart.PortableCart.export", side_effect=ValueError("Cart not found")):
+            result = runner.invoke(main, ["cart", "export", "missing", "-o", "/tmp/out"])
+
+        assert result.exit_code == 1
+        assert "Error" in result.output
+
+    def test_cart_import(self, tmp_path: Path) -> None:
+        runner = CliRunner()
+        pcart_dir = tmp_path / "test.pcart"
+        pcart_dir.mkdir()
+
+        mock_pcart = MagicMock()
+        mock_pcart.verify.return_value = {"core.yml": "valid"}
+        mock_pcart.install.return_value = {"cart_name": "test", "actions": ["Installed"]}
+
+        with patch("personality.cart.PortableCart.load", return_value=mock_pcart):
+            result = runner.invoke(main, ["cart", "import", str(pcart_dir)])
+
+        assert result.exit_code == 0
+        assert "Installed" in result.output
+
+    def test_cart_import_missing_path(self, tmp_path: Path) -> None:
+        runner = CliRunner()
+        missing = tmp_path / "missing"
+
+        result = runner.invoke(main, ["cart", "import", str(missing)])
+
+        assert result.exit_code == 1
+        assert "not found" in result.output
+
+    def test_cart_verify(self, tmp_path: Path) -> None:
+        runner = CliRunner()
+        pcart_dir = tmp_path / "test.pcart"
+        pcart_dir.mkdir()
+
+        mock_pcart = MagicMock()
+        mock_pcart.verify.return_value = {"core.yml": "valid", "preferences.yml": "valid"}
+
+        with patch("personality.cart.PortableCart.load", return_value=mock_pcart):
+            result = runner.invoke(main, ["cart", "verify", str(pcart_dir)])
+
+        assert result.exit_code == 0
+        assert "verified" in result.output

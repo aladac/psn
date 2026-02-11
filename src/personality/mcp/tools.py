@@ -232,3 +232,73 @@ def _format_search_results(results: list) -> str:
         lines.append(f"  {content_preview}...")
         lines.append("")
     return "\n".join(lines)
+
+
+@mcp.tool()
+async def cart_export(
+    name: str,
+    output_path: str,
+    include_voice: bool = False,
+) -> str:
+    """
+    Export a personality cart to portable format.
+
+    Args:
+        name: Cart name to export
+        output_path: Output directory path
+        include_voice: Include voice model (can be large)
+    """
+    from pathlib import Path
+
+    from personality.cart import PortableCart
+
+    try:
+        output = Path(output_path)
+        pcart = PortableCart.export(
+            name,
+            output,
+            include_voice=include_voice,
+            include_memories=True,
+            as_zip=False,
+        )
+        manifest = pcart.manifest
+        components = ", ".join(manifest.components.keys())
+        return f"Exported cart '{name}' to {output_path}\nComponents: {components}"
+    except Exception as e:
+        logger.warning("cart_export_error: %s", e)
+        return f"Error exporting cart: {e}"
+
+
+@mcp.tool()
+async def cart_import(
+    path: str,
+    mode: str = "safe",
+    target_name: str | None = None,
+) -> str:
+    """
+    Import a portable cart.
+
+    Args:
+        path: Path to .pcart directory or ZIP
+        mode: Import mode (safe, override, merge, dry_run)
+        target_name: Override cart name
+    """
+    from pathlib import Path
+
+    from personality.cart import InstallMode, PortableCart
+
+    try:
+        input_path = Path(path)
+        if not input_path.exists():
+            return f"Error: Path not found: {path}"
+
+        pcart = PortableCart.load(input_path)
+        install_mode = InstallMode(mode)
+        stats = pcart.install(mode=install_mode, target_name=target_name)
+        pcart.cleanup()
+
+        actions = "\n".join(f"- {a}" for a in stats["actions"])
+        return f"Installed cart: {stats['cart_name']}\n\nActions:\n{actions}"
+    except Exception as e:
+        logger.warning("cart_import_error: %s", e)
+        return f"Error importing cart: {e}"

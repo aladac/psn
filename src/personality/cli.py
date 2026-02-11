@@ -362,6 +362,111 @@ def projects_rm(path: str) -> None:
     console.print(f"[green]Unregistered:[/green] {path}")
 
 
+@main.group()
+def cart() -> None:
+    """Manage portable carts (.pcart format)."""
+
+
+@cart.command("export")
+@click.argument("name")
+@click.option("-o", "--output", help="Output path", required=True)
+@click.option("--zip", "as_zip", is_flag=True, help="Export as ZIP archive")
+@click.option("--no-voice", is_flag=True, help="Exclude voice model")
+@click.option("--no-memories", is_flag=True, help="Exclude memories")
+def cart_export(name: str, output: str, as_zip: bool, no_voice: bool, no_memories: bool) -> None:
+    """Export a cart to portable format."""
+    from personality.cart import PortableCart
+
+    output_path = Path(output)
+    if as_zip and not output_path.suffix:
+        output_path = output_path.with_suffix(".zip")
+
+    try:
+        pcart = PortableCart.export(
+            name,
+            output_path,
+            include_voice=not no_voice,
+            include_memories=not no_memories,
+            as_zip=as_zip,
+        )
+        console.print(f"[green]Exported:[/green] {output_path}")
+
+        manifest = pcart.manifest
+        console.print(f"[dim]Cart:[/dim] {manifest.cart_name}")
+        console.print(f"[dim]Components:[/dim] {', '.join(manifest.components.keys())}")
+    except ValueError as e:
+        console.print(f"[red]Error:[/red] {e}")
+        raise SystemExit(1) from None
+
+
+@cart.command("import")
+@click.argument("path")
+@click.option(
+    "--mode",
+    type=click.Choice(["safe", "override", "merge", "dry_run"]),
+    default="safe",
+    help="Import mode",
+)
+@click.option("--name", help="Override cart name")
+def cart_import(path: str, mode: str, name: str | None) -> None:
+    """Import a portable cart."""
+    from personality.cart import InstallMode, PortableCart
+
+    input_path = Path(path)
+    if not input_path.exists():
+        console.print(f"[red]Error:[/red] Path not found: {path}")
+        raise SystemExit(1)
+
+    try:
+        pcart = PortableCart.load(input_path)
+
+        # Verify first
+        verification = pcart.verify()
+        if any(v != "valid" for v in verification.values()):
+            console.print("[yellow]Warning: Some files failed verification[/yellow]")
+            for filename, status in verification.items():
+                if status != "valid":
+                    console.print(f"  [red]{filename}:[/red] {status}")
+
+        install_mode = InstallMode(mode)
+        stats = pcart.install(mode=install_mode, target_name=name)
+
+        console.print(f"[green]Installed:[/green] {stats['cart_name']}")
+        for action in stats["actions"]:
+            console.print(f"  [dim]{action}[/dim]")
+
+        pcart.cleanup()
+    except ValueError as e:
+        console.print(f"[red]Error:[/red] {e}")
+        raise SystemExit(1) from None
+
+
+@cart.command("verify")
+@click.argument("path")
+def cart_verify(path: str) -> None:
+    """Verify a portable cart's integrity."""
+    from personality.cart import PortableCart
+
+    input_path = Path(path)
+    if not input_path.exists():
+        console.print(f"[red]Error:[/red] Path not found: {path}")
+        raise SystemExit(1)
+
+    pcart = PortableCart.load(input_path)
+    results = pcart.verify()
+    pcart.cleanup()
+
+    all_valid = all(v == "valid" for v in results.values())
+    if all_valid:
+        console.print("[green]All files verified.[/green]")
+    else:
+        console.print("[red]Verification failed:[/red]")
+
+    for filename, status in results.items():
+        color = "green" if status == "valid" else "red"
+        console.print(f"  [{color}]{filename}:[/{color}] {status}")
+
+
 def _resolve_text(text: str | None, input_file: str | None) -> str:
     """Resolve text from argument, file, or stdin."""
     if text:

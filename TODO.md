@@ -42,13 +42,13 @@
 - [x] Step 6.6: Implement decision_support Prompt
 
 ## Phase 7: Portable Cartridge Format
-- [ ] Step 7.1: Define Manifest Schema
-- [ ] Step 7.2: Implement Core/Preferences Separation
-- [ ] Step 7.3: Implement Export Functionality
-- [ ] Step 7.4: Implement Import Functionality
-- [ ] Step 7.5: Add Cart CLI Commands
-- [ ] Step 7.6: Add Cart MCP Tools
-- [ ] Step 7.7: Add Portable Cart Tests
+- [x] Step 7.1: Define Manifest Schema
+- [x] Step 7.2: Implement Core/Preferences Separation
+- [x] Step 7.3: Implement Export Functionality
+- [x] Step 7.4: Implement Import Functionality
+- [x] Step 7.5: Add Cart CLI Commands
+- [x] Step 7.6: Add Cart MCP Tools
+- [x] Step 7.7: Add Portable Cart Tests
 
 ## Phase 8: Slash Commands & Documentation
 - [ ] Step 8.1: Create New Slash Commands

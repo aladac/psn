@@ -116,3 +116,75 @@ class TestSpeakTool:
             result = await speak(long_text, mock_context)
         assert "..." in result
         assert len(result) < len(long_text) + 20
+
+
+class TestCartExportTool:
+    """Tests for cart_export MCP tool."""
+
+    @pytest.mark.asyncio
+    async def test_exports_cart_successfully(self, tmp_path) -> None:
+        from personality.mcp.tools import cart_export
+
+        mock_pcart = MagicMock()
+        mock_pcart.manifest.components = {"core": True}
+
+        with patch("personality.cart.PortableCart.export", return_value=mock_pcart):
+            result = await cart_export("test", str(tmp_path / "out"))
+
+        assert "Exported" in result
+        assert "test" in result
+
+    @pytest.mark.asyncio
+    async def test_handles_export_error(self) -> None:
+        from personality.mcp.tools import cart_export
+
+        with (
+            patch("personality.cart.PortableCart.export", side_effect=ValueError("Not found")),
+            patch("personality.mcp.tools.logger"),
+        ):
+            result = await cart_export("missing", "/tmp/out")
+
+        assert "Error" in result
+
+
+class TestCartImportTool:
+    """Tests for cart_import MCP tool."""
+
+    @pytest.mark.asyncio
+    async def test_imports_cart_successfully(self, tmp_path) -> None:
+        from personality.mcp.tools import cart_import
+
+        pcart_dir = tmp_path / "test.pcart"
+        pcart_dir.mkdir()
+
+        mock_pcart = MagicMock()
+        mock_pcart.install.return_value = {"cart_name": "test", "actions": ["Installed"]}
+
+        with patch("personality.cart.PortableCart.load", return_value=mock_pcart):
+            result = await cart_import(str(pcart_dir))
+
+        assert "Installed" in result
+        assert "test" in result
+
+    @pytest.mark.asyncio
+    async def test_handles_missing_path(self) -> None:
+        from personality.mcp.tools import cart_import
+
+        result = await cart_import("/nonexistent/path")
+
+        assert "not found" in result
+
+    @pytest.mark.asyncio
+    async def test_handles_import_error(self, tmp_path) -> None:
+        from personality.mcp.tools import cart_import
+
+        pcart_dir = tmp_path / "test.pcart"
+        pcart_dir.mkdir()
+
+        with (
+            patch("personality.cart.PortableCart.load", side_effect=ValueError("Bad format")),
+            patch("personality.mcp.tools.logger"),
+        ):
+            result = await cart_import(str(pcart_dir))
+
+        assert "Error" in result
