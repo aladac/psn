@@ -3,7 +3,9 @@
     "allow": [
       "mcp__personality__speak",
       "mcp__personality__recall",
-      "mcp__personality__remember"
+      "mcp__personality__remember",
+      "mcp__personality__self_test",
+      "mcp__personality__consolidate"
     ]
   },
   "enableAllProjectMcpServers": true,
