@@ -214,6 +214,42 @@ class TestMemoryStore:
         sim = store._cosine_similarity(a, b)
         assert sim == 0.0
 
+    def test_recall_wildcard_returns_all(self, store: MemoryStore) -> None:
+        store.remember("topic1", "First memory")
+        store.remember("topic2", "Second memory")
+        store.remember("topic3", "Third memory")
+
+        results = store.recall("*")
+        assert len(results) == 3
+
+    def test_recall_all_keyword_returns_all(self, store: MemoryStore) -> None:
+        store.remember("topic1", "First memory")
+        store.remember("topic2", "Second memory")
+
+        results = store.recall("all")
+        assert len(results) == 2
+
+    def test_recall_empty_string_returns_all(self, store: MemoryStore) -> None:
+        store.remember("topic1", "First memory")
+
+        results = store.recall("")
+        assert len(results) == 1
+
+    def test_recall_wildcard_respects_limit(self, store: MemoryStore) -> None:
+        for i in range(10):
+            store.remember(f"topic{i}", f"Memory {i}")
+
+        results = store.recall("*", k=3)
+        assert len(results) == 3
+
+    def test_recall_special_chars_dont_crash(self, store: MemoryStore) -> None:
+        store.remember("test", "Content with special chars")
+
+        # These would crash FTS5 without escaping
+        for query in ['"quoted"', "paren(heses)", "colon:sep", "plus+"]:
+            results = store.recall(query)
+            assert isinstance(results, list)
+
 
 class TestMemoryStoreConsolidate:
     """Tests for MemoryStore.consolidate method."""

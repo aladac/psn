@@ -3,23 +3,23 @@
 import logging
 import os
 
-from mcp.server.fastmcp import Context
-from mcp.server.session import ServerSession
-
 from personality.config import (
     get_cart_identity,
     get_cart_voice,
     list_carts,
     load_cart,
 )
-from personality.mcp.server import AppContext, mcp
+from personality.mcp.server import _get_active_cart, _get_memory_db_path, mcp
+from personality.memory import MemoryStore
 
 logger = logging.getLogger(__name__)
 
 
-def _get_ctx(ctx: Context[ServerSession, AppContext]) -> AppContext:
-    """Extract typed AppContext from request context."""
-    return ctx.request_context.lifespan_context
+def _get_memory_store() -> MemoryStore:
+    """Get a memory store instance for the active cart."""
+    cart_name, _ = _get_active_cart()
+    db_path = _get_memory_db_path(cart_name)
+    return MemoryStore(db_path)
 
 
 @mcp.resource("personality://cart")
@@ -106,13 +106,16 @@ def _format_cart(name: str) -> str:
 
 
 @mcp.resource("personality://memories")
-def list_memories(ctx: Context[ServerSession, AppContext]) -> str:
+def list_memories() -> str:
     """List all stored memories."""
-    app = _get_ctx(ctx)
-    if not app.memory:
-        return "Memory store not initialized"
+    try:
+        store = _get_memory_store()
+        memories = store.list_all()
+        store.close()
+    except Exception as e:
+        logger.error("Failed to load memory store: %s", e)
+        return f"Error loading memories: {e}"
 
-    memories = app.memory.list_all()
     if not memories:
         return "No memories stored"
 
@@ -126,16 +129,16 @@ def list_memories(ctx: Context[ServerSession, AppContext]) -> str:
 
 
 @mcp.resource("personality://memories/{subject}")
-def get_memories_by_subject(
-    subject: str,
-    ctx: Context[ServerSession, AppContext],
-) -> str:
+def get_memories_by_subject(subject: str) -> str:
     """Get memories matching a subject prefix."""
-    app = _get_ctx(ctx)
-    if not app.memory:
-        return "Memory store not initialized"
+    try:
+        store = _get_memory_store()
+        all_memories = store.list_all()
+        store.close()
+    except Exception as e:
+        logger.error("Failed to load memory store: %s", e)
+        return f"Error loading memories: {e}"
 
-    all_memories = app.memory.list_all()
     matches = [m for m in all_memories if m.subject.startswith(subject)]
 
     if not matches:

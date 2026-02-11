@@ -130,25 +130,28 @@ class TestListAvailableCarts:
 class TestListMemories:
     """Tests for list_memories resource."""
 
-    def test_returns_no_store_message(self) -> None:
+    def test_returns_error_on_store_failure(self) -> None:
+        from personality.mcp import resources
         from personality.mcp.resources import list_memories
 
-        mock_ctx = MagicMock()
-        mock_ctx.request_context.lifespan_context.memory = None
-        result = list_memories(mock_ctx)
-        assert "not initialized" in result
+        with patch.object(
+            resources, "_get_memory_store", side_effect=Exception("DB error")
+        ):
+            result = list_memories()
+            assert "Error loading memories" in result
 
     def test_returns_no_memories_message(self) -> None:
+        from personality.mcp import resources
         from personality.mcp.resources import list_memories
 
-        mock_memory = MagicMock()
-        mock_memory.list_all.return_value = []
-        mock_ctx = MagicMock()
-        mock_ctx.request_context.lifespan_context.memory = mock_memory
-        result = list_memories(mock_ctx)
-        assert "No memories stored" in result
+        mock_store = MagicMock()
+        mock_store.list_all.return_value = []
+        with patch.object(resources, "_get_memory_store", return_value=mock_store):
+            result = list_memories()
+            assert "No memories stored" in result
 
     def test_lists_memories(self) -> None:
+        from personality.mcp import resources
         from personality.mcp.resources import list_memories
 
         mock_mem = MagicMock()
@@ -156,37 +159,39 @@ class TestListMemories:
         mock_mem.subject = "test"
         mock_mem.content = "Test content"
 
-        mock_memory = MagicMock()
-        mock_memory.list_all.return_value = [mock_mem]
-        mock_ctx = MagicMock()
-        mock_ctx.request_context.lifespan_context.memory = mock_memory
-        result = list_memories(mock_ctx)
-        assert "Memories" in result
-        assert "test" in result
+        mock_store = MagicMock()
+        mock_store.list_all.return_value = [mock_mem]
+        with patch.object(resources, "_get_memory_store", return_value=mock_store):
+            result = list_memories()
+            assert "Memories" in result
+            assert "test" in result
 
 
 class TestGetMemoriesBySubject:
     """Tests for get_memories_by_subject resource."""
 
-    def test_returns_no_store_message(self) -> None:
+    def test_returns_error_on_store_failure(self) -> None:
+        from personality.mcp import resources
         from personality.mcp.resources import get_memories_by_subject
 
-        mock_ctx = MagicMock()
-        mock_ctx.request_context.lifespan_context.memory = None
-        result = get_memories_by_subject("test", mock_ctx)
-        assert "not initialized" in result
+        with patch.object(
+            resources, "_get_memory_store", side_effect=Exception("DB error")
+        ):
+            result = get_memories_by_subject("test")
+            assert "Error loading memories" in result
 
     def test_returns_no_matches_message(self) -> None:
+        from personality.mcp import resources
         from personality.mcp.resources import get_memories_by_subject
 
-        mock_memory = MagicMock()
-        mock_memory.list_all.return_value = []
-        mock_ctx = MagicMock()
-        mock_ctx.request_context.lifespan_context.memory = mock_memory
-        result = get_memories_by_subject("test", mock_ctx)
-        assert "No memories found" in result
+        mock_store = MagicMock()
+        mock_store.list_all.return_value = []
+        with patch.object(resources, "_get_memory_store", return_value=mock_store):
+            result = get_memories_by_subject("test")
+            assert "No memories found" in result
 
     def test_returns_matching_memories(self) -> None:
+        from personality.mcp import resources
         from personality.mcp.resources import get_memories_by_subject
 
         mock_mem = MagicMock()
@@ -196,13 +201,12 @@ class TestGetMemoriesBySubject:
         mock_mem.created_at = "2024-01-01"
         mock_mem.accessed_at = "2024-01-02"
 
-        mock_memory = MagicMock()
-        mock_memory.list_all.return_value = [mock_mem]
-        mock_ctx = MagicMock()
-        mock_ctx.request_context.lifespan_context.memory = mock_memory
-        result = get_memories_by_subject("test", mock_ctx)
-        assert "test.topic" in result
-        assert "Test content" in result
+        mock_store = MagicMock()
+        mock_store.list_all.return_value = [mock_mem]
+        with patch.object(resources, "_get_memory_store", return_value=mock_store):
+            result = get_memories_by_subject("test")
+            assert "test.topic" in result
+            assert "Test content" in result
 
 
 class TestGetProjectStatus:

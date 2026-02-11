@@ -35,6 +35,13 @@ def serialize_f32(vec: list[float]) -> bytes:
     return struct.pack(f"{len(vec)}f", *vec)
 
 
+def escape_fts_query(query: str) -> str:
+    """Escape query for FTS5 MATCH to prevent syntax errors."""
+    # Wrap in quotes to treat as phrase, escape internal quotes
+    escaped = query.replace('"', '""')
+    return f'"{escaped}"'
+
+
 class MemoryStore:
     """Hybrid memory store with vector and full-text search."""
 
@@ -89,6 +96,10 @@ class MemoryStore:
         threshold: float = DEFAULT_THRESHOLD,
     ) -> list[Memory]:
         """Retrieve memories using hybrid search."""
+        # Handle special "list all" queries
+        if query.strip() in ("*", "all", ""):
+            return self.list_all()[:k]
+
         query_embedding = self.embedder.embed(query)
 
         # Vector search with cosine similarity
@@ -103,7 +114,8 @@ class MemoryStore:
             (serialize_f32(query_embedding), k * 2),
         ).fetchall()
 
-        # FTS search
+        # FTS search (escape query to handle special characters)
+        fts_query = escape_fts_query(query)
         fts_results = self.conn.execute(
             """
             SELECT rowid, bm25(memories_fts) AS score
@@ -112,7 +124,7 @@ class MemoryStore:
             ORDER BY score
             LIMIT ?
             """,
-            (query, k * 2),
+            (fts_query, k * 2),
         ).fetchall()
 
         # Combine scores (RRF - Reciprocal Rank Fusion)
