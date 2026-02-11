@@ -85,21 +85,68 @@ Modular FastMCP-based server:
 | File | Purpose |
 |------|---------|
 | `server.py` | Server setup, `AppContext` lifespan with memory, `run_server()` |
-| `tools.py` | MCP tools: speak, stop, remember, recall, forget, consolidate |
-| `resources.py` | MCP resources for cart and memory data |
-| `prompts.py` | MCP prompt templates |
+| `tools.py` | MCP tools: speak, memory, project, cart operations |
+| `resources.py` | MCP resources for cart, memory, and project data |
+| `prompts.py` | MCP prompt templates for context scaffolding |
 
 **Exposed interfaces:**
-- **Tools**: `speak`, `stop_speaking`, `remember`, `recall`, `forget`, `consolidate`
-- **Resources**: `personality://cart`, `personality://carts`, `personality://memories`
-- **Prompt**: `speak(text)` - generate speak command template
+- **Voice Tools**: `speak`, `stop_speaking`
+- **Memory Tools**: `remember`, `recall`, `forget`, `consolidate`
+- **Project Tools**: `project_search`, `project_summary`
+- **Cart Tools**: `cart_export`, `cart_import`
+- **Resources**: `personality://cart`, `personality://carts`, `personality://memories`, `personality://project`
+- **Prompts**: `speak`, `persona_scaffold`, `conversation_starter`, `learning_interaction`, `project_overview`, `decision_support`
 
 The server uses lifespan context (`AppContext`) to hold active cart state. Cart is selected via `PERSONALITY_CART` env var (default: `bt7274`).
+
+### Memory System (`memory/`)
+
+Persistent knowledge storage with hybrid search:
+
+| File | Purpose |
+|------|---------|
+| `embedder.py` | Ollama embeddings (nomic-embed-text) |
+| `store.py` | MemoryStore with vector + FTS hybrid search |
+| `schema.py` | sqlite-vec schema with FTS5 triggers |
+
+**Subject Hierarchy:**
+- `user.*` - User information (name, preferences, etc.)
+- `project.*` - Project knowledge (stack, decisions, etc.)
+- `self.*` - Persona capabilities and learnings
+- `session.*` - Session context and history
+
+### Project Indexing (`index/`)
+
+Semantic code search with tree-sitter:
+
+| File | Purpose |
+|------|---------|
+| `chunker.py` | Semantic code chunking with tree-sitter |
+| `indexer.py` | ProjectIndexer with vector search |
+| `schema.py` | Index database schema |
+
+**CLI Commands:**
+- `psn index` - Index current project
+- `psn index --status` - Check index freshness
+- `psn projects list` - List indexed projects
+
+### Cart Portability (`cart/`)
+
+Export/import carts with `.pcart` format:
+
+```bash
+psn cart export bt7274 -o ./export   # Export to directory
+psn cart export bt7274 -o out.zip --zip  # Export as ZIP
+psn cart import ./export --mode merge     # Import with merge
+```
+
+**Install Modes:** `safe`, `override`, `merge`, `dry_run`
 
 ### Slash Commands (`commands/`)
 
 Markdown templates installed to `~/.claude/commands/psn/` via `psn install`:
 - `speak.md`, `cart.md`, `carts.md`, `voices.md`, `status.md`
+- `remember.md`, `recall.md`, `index.md`
 
 ### Configuration Layout
 
@@ -136,6 +183,9 @@ The package functions as a Claude Code plugin via `.claude-plugin/` and `.mcp.js
 - `/psn:carts` - List available carts
 - `/psn:voices` - List voice models
 - `/psn:status` - Show configuration status
+- `/psn:remember` - Store information in memory
+- `/psn:recall` - Search and retrieve memories
+- `/psn:index` - Project indexing commands
 
 ### Hook Configuration
 

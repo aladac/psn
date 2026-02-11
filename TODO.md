@@ -51,9 +51,9 @@
 - [x] Step 7.7: Add Portable Cart Tests
 
 ## Phase 8: Slash Commands & Documentation
-- [ ] Step 8.1: Create New Slash Commands
-- [ ] Step 8.2: Update CLAUDE.md
-- [ ] Step 8.3: Update psn install Command
+- [x] Step 8.1: Create New Slash Commands
+- [x] Step 8.2: Update CLAUDE.md
+- [x] Step 8.3: Update psn install Command
 
 ## Phase 9: Integration Testing
 - [ ] Step 9.1: Create Integration Test Suite
