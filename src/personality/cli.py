@@ -217,6 +217,57 @@ def uninstall() -> None:
     console.print("[green]Removed:[/green] ~/.claude/commands/psn/")
 
 
+# Hook command group for Claude Code lifecycle events
+@main.group()
+def hook() -> None:
+    """Claude Code hook commands for lifecycle events.
+
+    These commands are invoked by Claude Code hooks (settings.json).
+    They read JSON from stdin and output JSON to stdout.
+    """
+
+
+@hook.command("session-start")
+@click.option("-c", "--cart", default=DEFAULT_CART, envvar="PERSONALITY_CART")
+def hook_session_start(cart: str) -> None:
+    """Handle session start: greet and load context."""
+    from personality.hooks import session_start
+
+    result = session_start(cart)
+    click.echo(result.to_json())
+
+
+@hook.command("session-end")
+@click.option("-c", "--cart", default=DEFAULT_CART, envvar="PERSONALITY_CART")
+def hook_session_end(cart: str) -> None:
+    """Handle session end: consolidate memories and farewell."""
+    from personality.hooks import session_end
+
+    result = session_end(cart)
+    click.echo(result.to_json())
+
+
+@hook.command("stop")
+@click.option("-c", "--cart", default=DEFAULT_CART, envvar="PERSONALITY_CART")
+def hook_stop(cart: str) -> None:
+    """Handle stop event: speak on end_turn only."""
+    from personality.hooks import stop
+
+    result = stop(cart)
+    click.echo(result.to_json())
+
+
+@hook.command("notify")
+@click.option("-c", "--cart", default=DEFAULT_CART, envvar="PERSONALITY_CART")
+@click.option("-m", "--message", help="Notification message to speak.")
+def hook_notify(cart: str, message: str | None) -> None:
+    """Handle notification: speak the message."""
+    from personality.hooks import notify
+
+    result = notify(cart, message)
+    click.echo(result.to_json())
+
+
 def _resolve_text(text: str | None, input_file: str | None) -> str:
     """Resolve text from argument, file, or stdin."""
     if text:

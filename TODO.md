@@ -18,12 +18,12 @@
 - [x] Step 3.5: Add MCP Memory Tests
 
 ## Phase 4: Hook Integration
-- [ ] Step 4.1: Create Hook CLI Group
-- [ ] Step 4.2: Implement session-start Hook
-- [ ] Step 4.3: Implement session-end Hook
-- [ ] Step 4.4: Implement stop Hook
-- [ ] Step 4.5: Implement notify Hook
-- [ ] Step 4.6: Document Hook Configuration
+- [x] Step 4.1: Create Hook CLI Group
+- [x] Step 4.2: Implement session-start Hook
+- [x] Step 4.3: Implement session-end Hook
+- [x] Step 4.4: Implement stop Hook
+- [x] Step 4.5: Implement notify Hook
+- [x] Step 4.6: Document Hook Configuration
 
 ## Phase 5: Project Indexing
 - [ ] Step 5.1: Create Index Schema

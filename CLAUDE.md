@@ -73,9 +73,10 @@ uv run pytest --cov       # Coverage ≥91%
 
 ### Core Components
 
-- **`cli.py`** - Click CLI with commands: `speak`, `carts`, `voices`, `mcp`, `install`, `uninstall`
-- **`speak.py`** - `Speak` class wrapping Piper TTS with voice caching and multi-player support (ffplay/afplay/aplay)
+- **`cli.py`** - Click CLI with commands: `speak`, `carts`, `voices`, `mcp`, `hook`, `install`, `uninstall`
+- **`speak.py`** - `Speak` class wrapping Piper TTS with sounddevice playback and `stop()` support
 - **`config.py`** - Cart and voice configuration from `~/.config/personality/`
+- **`hooks.py`** - Claude Code hook handlers for lifecycle events
 
 ### MCP Server (`mcp/`)
 
@@ -83,14 +84,14 @@ Modular FastMCP-based server:
 
 | File | Purpose |
 |------|---------|
-| `server.py` | Server setup, `AppContext` lifespan, `run_server()` entry point |
-| `tools.py` | MCP tool: `speak(text, voice?)` |
-| `resources.py` | MCP resources for cart data |
+| `server.py` | Server setup, `AppContext` lifespan with memory, `run_server()` |
+| `tools.py` | MCP tools: speak, stop, remember, recall, forget, consolidate |
+| `resources.py` | MCP resources for cart and memory data |
 | `prompts.py` | MCP prompt templates |
 
 **Exposed interfaces:**
-- **Tool**: `speak(text, voice?)` - synthesize and play audio
-- **Resources**: `personality://cart`, `personality://cart/{name}`, `personality://carts`
+- **Tools**: `speak`, `stop_speaking`, `remember`, `recall`, `forget`, `consolidate`
+- **Resources**: `personality://cart`, `personality://carts`, `personality://memories`
 - **Prompt**: `speak(text)` - generate speak command template
 
 The server uses lifespan context (`AppContext`) to hold active cart state. Cart is selected via `PERSONALITY_CART` env var (default: `bt7274`).
@@ -106,8 +107,11 @@ Markdown templates installed to `~/.claude/commands/psn/` via `psn install`:
 ~/.config/personality/
 ├── carts/          # Personality carts (*.yml)
 │   └── bt7274.yml
-└── voices/         # Piper voice models (*.onnx + *.onnx.json)
-    └── bt7274.onnx
+├── memory/         # Cart-specific memory databases
+│   └── bt7274.db
+├── voices/         # Piper voice models (*.onnx + *.onnx.json)
+│   └── bt7274.onnx
+└── hooks.log       # Hook execution log
 ```
 
 ### Cart Format
@@ -132,3 +136,48 @@ The package functions as a Claude Code plugin via `.claude-plugin/` and `.mcp.js
 - `/psn:carts` - List available carts
 - `/psn:voices` - List voice models
 - `/psn:status` - Show configuration status
+
+### Hook Configuration
+
+Add to `~/.claude/settings.json` for lifecycle hooks:
+
+```json
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [{"type": "command", "command": "psn hook session-start"}]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [{"type": "command", "command": "psn hook stop"}]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "",
+        "hooks": [{"type": "command", "command": "psn hook notify"}]
+      }
+    ]
+  },
+  "mcpServers": {
+    "personality": {
+      "type": "stdio",
+      "command": "psn",
+      "args": ["mcp"],
+      "env": {"PERSONALITY_CART": "bt7274"}
+    }
+  }
+}
+```
+
+**Hook Commands:**
+- `psn hook session-start` - Greet with cart tagline, load context
+- `psn hook session-end` - Consolidate memories, farewell
+- `psn hook stop` - Speak "Standing by" on end_turn only
+- `psn hook notify -m "message"` - Speak notifications
+
+All hooks log to `~/.config/personality/hooks.log` and respect `PERSONALITY_CART` env var.
