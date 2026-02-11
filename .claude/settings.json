@@ -1,39 +1,7 @@
 {
-  "$schema": "https://json.schemastore.org/claude-code-settings.json",
-  "env": {
-    "PERSONALITY_CART": "bt7274"
-  },
-  "permissions": {
-    "allow": [
-      "Bash(uv run *)",
-      "Bash(git *)",
-      "Bash(pytest *)",
-      "mcp__personality__speak",
-      "mcp__personality__stop_speaking",
-      "mcp__personality__remember",
-      "mcp__personality__recall",
-      "mcp__personality__forget",
-      "mcp__personality__consolidate",
-      "mcp__personality__project_search",
-      "mcp__personality__project_summary",
-      "mcp__personality__cart_export",
-      "mcp__personality__cart_import"
-    ],
-    "deny": []
-  },
-  "mcpServers": {
-    "personality": {
-      "command": "uv",
-      "args": ["run", "psn", "mcp"],
-      "env": {
-        "PERSONALITY_CART": "bt7274"
-      }
-    }
-  },
   "hooks": {
     "SessionStart": [
       {
-        "matcher": "",
         "hooks": [
           {
             "type": "command",
@@ -43,21 +11,8 @@
         ]
       }
     ],
-    "SessionEnd": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "uv run psn hook session-end",
-            "timeout": 10000
-          }
-        ]
-      }
-    ],
     "Stop": [
       {
-        "matcher": "",
         "hooks": [
           {
             "type": "command",
@@ -69,7 +24,6 @@
     ],
     "Notification": [
       {
-        "matcher": "",
         "hooks": [
           {
             "type": "command",
