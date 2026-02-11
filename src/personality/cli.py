@@ -598,6 +598,296 @@ def docs_status(path: str | None) -> None:
     console.print(f"[cyan]Chunks:[/cyan] {info['chunk_count']}")
 
 
+@main.command()
+def storage() -> None:
+    """Show storage breakdown for all personality databases."""
+    from rich.table import Table
+
+    from personality.config import CONFIG_DIR
+
+    def _format_size(size_bytes: int) -> str:
+        """Format bytes as human-readable size."""
+        if size_bytes >= 1024 * 1024:
+            return f"{size_bytes / (1024 * 1024):.1f} MB"
+        elif size_bytes >= 1024:
+            return f"{size_bytes / 1024:.1f} KB"
+        return f"{size_bytes} B"
+
+    def _count_db_records(db_path: Path, table: str) -> int | None:
+        """Count records in a SQLite table."""
+        import sqlite3
+
+        try:
+            conn = sqlite3.connect(db_path)
+            cursor = conn.execute(f"SELECT COUNT(*) FROM {table}")  # noqa: S608
+            count = cursor.fetchone()[0]
+            conn.close()
+            return count
+        except Exception:
+            return None
+
+    def _dir_stats(dir_path: Path, pattern: str = "*") -> tuple[int, int]:
+        """Get total size and file count for a directory pattern."""
+        if not dir_path.exists():
+            return 0, 0
+        files = list(dir_path.glob(pattern))
+        total_size = sum(f.stat().st_size for f in files if f.is_file())
+        return total_size, len(files)
+
+    # Gather stats for each category
+    categories = []
+
+    # Carts (YAML configs)
+    carts_dir = CONFIG_DIR / "carts"
+    size, count = _dir_stats(carts_dir, "*.yml")
+    categories.append(("Carts", size, f"{count} carts", str(carts_dir)))
+
+    # Memory databases
+    memory_dir = CONFIG_DIR / "memory"
+    size, count = _dir_stats(memory_dir, "*.db")
+    # Get record count from active cart db
+    memory_records = None
+    for db in memory_dir.glob("*.db"):
+        records = _count_db_records(db, "memories")
+        if records is not None:
+            memory_records = (memory_records or 0) + records
+    details = f"{memory_records} memories" if memory_records else f"{count} DBs"
+    categories.append(("Memory", size, details, str(memory_dir)))
+
+    # Docs index
+    docs_dir = CONFIG_DIR / "docs"
+    size, count = _dir_stats(docs_dir, "*.db")
+    docs_chunks = None
+    for db in docs_dir.glob("*.db"):
+        chunks = _count_db_records(db, "doc_chunks")
+        if chunks is not None:
+            docs_chunks = (docs_chunks or 0) + chunks
+    details = f"{docs_chunks} chunks" if docs_chunks else f"{count} DBs"
+    categories.append(("Docs Index", size, details, str(docs_dir)))
+
+    # Project indexes
+    index_dir = CONFIG_DIR / "index"
+    size, count = _dir_stats(index_dir, "*.db")
+    categories.append(("Project Index", size, f"{count} projects", str(index_dir)))
+
+    # Voice models
+    voices_dir = CONFIG_DIR / "voices"
+    size, count = _dir_stats(voices_dir, "*.onnx")
+    categories.append(("Voices", size, f"{count} models", str(voices_dir)))
+
+    # Build table
+    table = Table(title="Personality Storage", show_header=True)
+    table.add_column("Category", style="cyan")
+    table.add_column("Size", style="white", justify="right")
+    table.add_column("Contents", style="dim")
+
+    total_size = 0
+    for name, size, details, _ in categories:
+        total_size += size
+        table.add_row(name, _format_size(size), details)
+
+    table.add_section()
+    table.add_row("[bold]Total[/bold]", f"[bold]{_format_size(total_size)}[/bold]", "")
+
+    console.print(table)
+    console.print(f"\n[dim]Config directory: {CONFIG_DIR}[/dim]")
+
+
+# Diagnostics command group
+@main.group()
+def diag() -> None:
+    """Diagnostic tools for debugging and inspection."""
+
+
+@diag.command("memory")
+@click.option("-c", "--cart", default=DEFAULT_CART, envvar="PERSONALITY_CART")
+@click.option("-s", "--subject", help="Filter by subject prefix.")
+@click.option("--stats", is_flag=True, help="Show statistics only.")
+@click.option("--duplicates", is_flag=True, help="Find potential duplicates.")
+def diag_memory(cart: str, subject: str | None, stats: bool, duplicates: bool) -> None:
+    """Browse and inspect memories."""
+    from rich.table import Table
+
+    from personality.diagnostics import find_similar_memories, list_memories, memory_stats
+
+    if stats:
+        info = memory_stats(cart)
+        console.print(f"[cyan]Total memories:[/cyan] {info['total']}")
+        console.print(f"[cyan]Database:[/cyan] {info['db_path']}")
+        console.print("\n[cyan]By prefix:[/cyan]")
+        for prefix, count in sorted(info["by_prefix"].items()):
+            console.print(f"  {prefix}: {count}")
+        return
+
+    if duplicates:
+        similar = find_similar_memories(cart, threshold=0.7)
+        if not similar:
+            console.print("[green]No potential duplicates found.[/green]")
+            return
+        console.print(f"[yellow]Found {len(similar)} potential duplicates:[/yellow]\n")
+        for m1, m2, score in similar[:10]:
+            console.print(f"[cyan]{m1.subject}[/cyan] (id={m1.id}) <-> [cyan]{m2.subject}[/cyan] (id={m2.id})")
+            console.print(f"  Similarity: {score:.0%}")
+            console.print(f"  [dim]{m1.content[:80]}...[/dim]\n")
+        return
+
+    memories = list_memories(cart, subject)
+    if not memories:
+        console.print("[yellow]No memories found.[/yellow]")
+        return
+
+    table = Table(title=f"Memories ({cart})", show_header=True)
+    table.add_column("ID", style="dim", width=4)
+    table.add_column("Subject", style="cyan", width=25)
+    table.add_column("Content", style="white", max_width=50)
+
+    for mem in memories:
+        content_preview = mem.content[:100].replace("\n", " ")
+        table.add_row(str(mem.id), mem.subject, content_preview)
+
+    console.print(table)
+
+
+@diag.command("index")
+@click.option("--orphans", is_flag=True, help="Show orphaned indexes (missing projects).")
+@click.option("--stale", type=int, help="Show indexes older than N days.")
+@click.option("--cleanup", is_flag=True, help="Remove orphaned indexes.")
+def diag_index(orphans: bool, stale: int | None, cleanup: bool) -> None:
+    """Check project index health."""
+    from rich.table import Table
+
+    from personality.diagnostics import (
+        cleanup_orphaned_indexes,
+        find_orphaned_indexes,
+        find_stale_indexes,
+        list_project_indexes,
+    )
+
+    if cleanup:
+        removed = cleanup_orphaned_indexes()
+        if removed:
+            console.print(f"[green]Removed {len(removed)} orphaned indexes:[/green]")
+            for path in removed:
+                console.print(f"  [dim]{path}[/dim]")
+        else:
+            console.print("[green]No orphaned indexes to clean.[/green]")
+        return
+
+    if orphans:
+        orphaned = find_orphaned_indexes()
+        if not orphaned:
+            console.print("[green]No orphaned indexes found.[/green]")
+            return
+        console.print(f"[yellow]Found {len(orphaned)} orphaned indexes:[/yellow]")
+        for idx in orphaned:
+            console.print(f"  [red]{idx.project_path}[/red]")
+            console.print(f"    [dim]DB: {idx.db_path}[/dim]")
+        console.print("\n[dim]Run 'psn diag index --cleanup' to remove.[/dim]")
+        return
+
+    if stale:
+        from datetime import datetime
+
+        stale_indexes = find_stale_indexes(stale)
+        if not stale_indexes:
+            console.print(f"[green]No indexes older than {stale} days.[/green]")
+            return
+        console.print(f"[yellow]Found {len(stale_indexes)} stale indexes:[/yellow]")
+        for idx in stale_indexes:
+            age = (datetime.now() - idx.last_modified).days
+            console.print(f"  {idx.project_path} ({age} days old)")
+        return
+
+    # Default: show all indexes
+
+    indexes = list_project_indexes()
+    if not indexes:
+        console.print("[yellow]No project indexes found.[/yellow]")
+        return
+
+    table = Table(title="Project Indexes", show_header=True)
+    table.add_column("Project", style="cyan", max_width=40)
+    table.add_column("Files", justify="right")
+    table.add_column("Chunks", justify="right")
+    table.add_column("Size", justify="right")
+    table.add_column("Status", style="dim")
+
+    for idx in sorted(indexes, key=lambda x: x.last_modified, reverse=True):
+        size_mb = idx.db_size / (1024 * 1024)
+        status = "[green]OK[/green]" if idx.exists and Path(idx.project_path).exists() else "[red]orphan[/red]"
+        table.add_row(
+            idx.project_path[-40:],
+            str(idx.file_count),
+            str(idx.chunk_count),
+            f"{size_mb:.1f} MB",
+            status,
+        )
+
+    console.print(table)
+
+
+@diag.command("logs")
+@click.option("-n", "--lines", default=20, help="Number of lines to show.")
+@click.option("-e", "--event", help="Filter by event type.")
+@click.option("--stats", is_flag=True, help="Show log statistics.")
+def diag_logs(lines: int, event: str | None, stats: bool) -> None:
+    """View and analyze hooks log."""
+    from rich.table import Table
+
+    from personality.diagnostics import get_log_stats, tail_logs
+
+    if stats:
+        info = get_log_stats()
+        if not info.get("exists"):
+            console.print("[yellow]No log file found.[/yellow]")
+            return
+        console.print(f"[cyan]Log size:[/cyan] {info['size'] / 1024:.1f} KB")
+        console.print(f"[cyan]Entries analyzed:[/cyan] {info['total_entries']}")
+        console.print("\n[cyan]By event:[/cyan]")
+        for evt, count in sorted(info["by_event"].items(), key=lambda x: x[1], reverse=True):
+            console.print(f"  {evt}: {count}")
+        console.print("\n[cyan]By level:[/cyan]")
+        for level, count in info["by_level"].items():
+            color = "red" if level == "ERROR" else "yellow" if level == "WARNING" else "white"
+            console.print(f"  [{color}]{level}[/{color}]: {count}")
+        return
+
+    entries = tail_logs(lines, event)
+    if not entries:
+        console.print("[yellow]No log entries found.[/yellow]")
+        return
+
+    table = Table(show_header=True, show_lines=False)
+    table.add_column("Time", style="dim", width=19)
+    table.add_column("Level", width=7)
+    table.add_column("Event", style="cyan", width=15)
+    table.add_column("Message", style="white")
+
+    for entry in entries:
+        level_color = "red" if entry.level == "ERROR" else "yellow" if entry.level == "WARNING" else "white"
+        table.add_row(entry.timestamp, f"[{level_color}]{entry.level}[/{level_color}]", entry.event, entry.message[:60])
+
+    console.print(table)
+
+
+@diag.command("embeddings")
+def diag_embeddings() -> None:
+    """Test embedding system connectivity and performance."""
+    from personality.diagnostics import test_embeddings
+
+    console.print("[cyan]Testing embedding system...[/cyan]")
+    result = test_embeddings()
+
+    if result.available:
+        console.print("[green]Status:[/green] Available")
+        console.print(f"[cyan]Model:[/cyan] {result.model}")
+        console.print(f"[cyan]Dimensions:[/cyan] {result.dimensions}")
+        console.print(f"[cyan]Latency:[/cyan] {result.latency_ms} ms")
+    else:
+        console.print("[red]Status:[/red] Unavailable")
+        console.print(f"[red]Error:[/red] {result.error}")
+
+
 def _resolve_text(text: str | None, input_file: str | None) -> str:
     """Resolve text from argument, file, or stdin."""
     if text:
