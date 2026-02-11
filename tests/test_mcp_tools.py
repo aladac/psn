@@ -188,3 +188,116 @@ class TestCartImportTool:
             result = await cart_import(str(pcart_dir))
 
         assert "Error" in result
+
+
+class TestSelfTestTool:
+    """Tests for self_test MCP tool."""
+
+    @pytest.fixture
+    def mock_context_full(self) -> MagicMock:
+        """Create a mock MCP context with memory."""
+        mock_memory = MagicMock()
+        mock_memory.list_all.return_value = [
+            MagicMock(subject="user.name", content="Test"),
+            MagicMock(subject="tools.browse", content="Navigation"),
+        ]
+        mock_memory.recall.return_value = [
+            MagicMock(subject="tools.browse.nav", content="goto, back"),
+        ]
+
+        app_ctx = AppContext(
+            cart_name="bt7274",
+            cart_data={"preferences": {"speak": {"voice": "bt7274"}}},
+            voice_dir="/tmp/voices",
+            memory=mock_memory,
+        )
+        ctx = MagicMock()
+        ctx.request_context.lifespan_context = app_ctx
+        return ctx
+
+    @pytest.fixture
+    def mock_context_no_memory(self) -> MagicMock:
+        """Create a mock MCP context without memory."""
+        app_ctx = AppContext(
+            cart_name="test",
+            cart_data={"preferences": {}},
+            voice_dir="/tmp/voices",
+            memory=None,
+        )
+        ctx = MagicMock()
+        ctx.request_context.lifespan_context = app_ctx
+        return ctx
+
+    @pytest.mark.asyncio
+    async def test_returns_diagnostics_report(self, mock_context_full: MagicMock) -> None:
+        from personality.mcp.tools import self_test
+
+        with (
+            patch("personality.memory.get_embedder") as mock_embedder,
+            patch("personality.index.get_indexer") as mock_indexer,
+            patch("personality.docs.get_doc_indexer") as mock_doc_indexer,
+            patch("pathlib.Path.exists", return_value=True),
+        ):
+            mock_embedder.return_value.model = "nomic-embed-text"
+            mock_embedder.return_value.dimensions = 768
+
+            mock_indexer.return_value.status.return_value = {
+                "project_path": "/test",
+                "file_count": 10,
+                "chunk_count": 50,
+            }
+
+            mock_doc_indexer.return_value.status.return_value = {
+                "docs_path": "/docs",
+                "document_count": 5,
+                "chunk_count": 25,
+            }
+
+            result = await self_test(mock_context_full, verbose=False)
+
+        assert "Personality Systems Diagnostics" in result
+        assert "Cart & Voice" in result
+        assert "Memory System" in result
+        assert "Embeddings" in result
+        assert "Project Index" in result
+        assert "Docs Index" in result
+        assert "Arsenal" in result
+
+    @pytest.mark.asyncio
+    async def test_reports_missing_memory(self, mock_context_no_memory: MagicMock) -> None:
+        from personality.mcp.tools import self_test
+
+        with (
+            patch("personality.memory.get_embedder") as mock_embedder,
+            patch("personality.index.get_indexer") as mock_indexer,
+            patch("personality.docs.get_doc_indexer") as mock_doc_indexer,
+        ):
+            mock_embedder.return_value.model = "test"
+            mock_embedder.return_value.dimensions = 3
+            mock_indexer.return_value.status.return_value = {"project_path": "", "file_count": 0, "chunk_count": 0}
+            mock_doc_indexer.return_value.status.return_value = {"docs_path": "", "document_count": 0, "chunk_count": 0}
+
+            result = await self_test(mock_context_no_memory)
+
+        assert "NOT INITIALIZED" in result
+        assert "Some systems have issues" in result
+
+    @pytest.mark.asyncio
+    async def test_verbose_shows_details(self, mock_context_full: MagicMock) -> None:
+        from personality.mcp.tools import self_test
+
+        with (
+            patch("personality.memory.get_embedder") as mock_embedder,
+            patch("personality.index.get_indexer") as mock_indexer,
+            patch("personality.docs.get_doc_indexer") as mock_doc_indexer,
+            patch("pathlib.Path.exists", return_value=True),
+        ):
+            mock_embedder.return_value.model = "nomic"
+            mock_embedder.return_value.dimensions = 768
+            mock_indexer.return_value.status.return_value = {"project_path": "", "file_count": 0, "chunk_count": 0}
+            mock_doc_indexer.return_value.status.return_value = {"docs_path": "", "document_count": 0, "chunk_count": 0}
+
+            result = await self_test(mock_context_full, verbose=True)
+
+        # Verbose should show subject breakdown
+        assert "user.*" in result or "tools.*" in result

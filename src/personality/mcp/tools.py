@@ -381,3 +381,137 @@ def _format_doc_results(results: list) -> str:
             lines.append(f"  Source: {r.source_url}")
         lines.append("")
     return "\n".join(lines)
+
+
+@mcp.tool()
+async def self_test(
+    ctx: Context[ServerSession, AppContext],
+    verbose: bool = False,
+) -> str:
+    """
+    Run diagnostics on all personality systems.
+
+    Checks: cart, voice, memory, embeddings, project index, docs index, arsenal.
+
+    Args:
+        verbose: Include detailed information for each system
+    """
+    app = _get_ctx(ctx)
+    results: list[str] = ["# Personality Systems Diagnostics\n"]
+    all_ok = True
+
+    # 1. Cart & Voice
+    results.append("## Cart & Voice")
+    if app.cart_data:
+        cart_voice = get_cart_voice(app.cart_data) or app.cart_name
+        results.append(f"- Cart: **{app.cart_name}** - OK")
+        results.append(f"- Voice: **{cart_voice}**")
+
+        voice_path = Path(app.voice_dir) / f"{cart_voice}.onnx"
+        if voice_path.exists():
+            results.append(f"- Voice model: OK ({voice_path.name})")
+        else:
+            results.append(f"- Voice model: MISSING ({voice_path})")
+            all_ok = False
+    else:
+        results.append("- Cart: NOT LOADED")
+        all_ok = False
+    results.append("")
+
+    # 2. Memory System
+    results.append("## Memory System")
+    if app.memory:
+        try:
+            memories = app.memory.list_all()
+            results.append("- Status: OK")
+            results.append(f"- Memories stored: **{len(memories)}**")
+            if verbose and memories:
+                subjects = {}
+                for m in memories:
+                    prefix = m.subject.split(".")[0]
+                    subjects[prefix] = subjects.get(prefix, 0) + 1
+                for subj, count in sorted(subjects.items()):
+                    results.append(f"  - {subj}.*: {count}")
+        except Exception as e:
+            results.append(f"- Status: ERROR - {e}")
+            all_ok = False
+    else:
+        results.append("- Status: NOT INITIALIZED")
+        all_ok = False
+    results.append("")
+
+    # 3. Embeddings (Ollama)
+    results.append("## Embeddings (Ollama)")
+    try:
+        from personality.memory import get_embedder
+
+        embedder = get_embedder()
+        dims = embedder.dimensions
+        results.append("- Status: OK")
+        results.append(f"- Model: **{embedder.model}**")
+        results.append(f"- Dimensions: {dims}")
+    except Exception as e:
+        results.append(f"- Status: ERROR - {e}")
+        all_ok = False
+    results.append("")
+
+    # 4. Project Index
+    results.append("## Project Index")
+    try:
+        from personality.index import get_indexer
+
+        indexer = get_indexer(Path.cwd())
+        status = indexer.status()
+        indexer.close()
+        results.append("- Status: OK")
+        results.append(f"- Project: {status['project_path']}")
+        results.append(f"- Files: {status['file_count']}, Chunks: {status['chunk_count']}")
+    except Exception as e:
+        results.append(f"- Status: ERROR - {e}")
+        all_ok = False
+    results.append("")
+
+    # 5. Docs Index
+    results.append("## Docs Index")
+    try:
+        from personality.docs import get_doc_indexer
+
+        indexer = get_doc_indexer()
+        status = indexer.status()
+        indexer.close()
+        results.append("- Status: OK")
+        results.append(f"- Path: {status['docs_path']}")
+        results.append(f"- Documents: {status['document_count']}, Chunks: {status['chunk_count']}")
+    except Exception as e:
+        results.append(f"- Status: ERROR - {e}")
+        all_ok = False
+    results.append("")
+
+    # 6. Arsenal (remembered tools)
+    results.append("## Arsenal (Remembered Tools)")
+    if app.memory:
+        try:
+            arsenal = app.memory.recall("tools arsenal loadout", k=20)
+            tool_memories = [m for m in arsenal if m.subject.startswith("tools.")]
+            if tool_memories:
+                results.append(f"- Catalogued: **{len(tool_memories)}** tool entries")
+                if verbose:
+                    for m in tool_memories:
+                        results.append(f"  - {m.subject}")
+            else:
+                results.append("- Catalogued: 0 (no tools in memory)")
+        except Exception as e:
+            results.append(f"- Status: ERROR - {e}")
+            all_ok = False
+    else:
+        results.append("- Cannot check (memory not initialized)")
+    results.append("")
+
+    # Summary
+    results.append("---")
+    if all_ok:
+        results.append("**All systems operational.**")
+    else:
+        results.append("**Some systems have issues.** Check details above.")
+
+    return "\n".join(results)
