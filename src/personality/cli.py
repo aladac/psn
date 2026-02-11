@@ -268,6 +268,100 @@ def hook_notify(cart: str, message: str | None) -> None:
     click.echo(result.to_json())
 
 
+@main.command()
+@click.option("--force", "-f", is_flag=True, help="Re-index all files.")
+@click.option("--status", "-s", is_flag=True, help="Show index status.")
+@click.argument("path", required=False, type=click.Path(exists=True))
+def index(force: bool, status: bool, path: str | None) -> None:
+    """Index a project for semantic code search.
+
+    Examples:
+        psn index              # Index current directory
+        psn index --force      # Re-index all files
+        psn index --status     # Show index status
+        psn index /path/to/project
+    """
+    from personality.index import get_indexer
+
+    project_path = Path(path) if path else Path.cwd()
+    indexer = get_indexer(project_path)
+
+    if status:
+        info = indexer.status()
+        console.print(f"[cyan]Project:[/cyan] {info['project_path']}")
+        console.print(f"[cyan]Index:[/cyan] {info['db_path']}")
+        console.print(f"[cyan]Files:[/cyan] {info['file_count']}")
+        console.print(f"[cyan]Chunks:[/cyan] {info['chunk_count']}")
+        console.print(f"[cyan]Summary:[/cyan] {'Yes' if info['has_summary'] else 'No'}")
+        indexer.close()
+        return
+
+    console.print(f"[cyan]Indexing:[/cyan] {project_path}")
+    stats = indexer.index(force=force)
+    indexer.close()
+
+    console.print(f"[green]Files indexed:[/green] {stats['files_indexed']}")
+    console.print(f"[dim]Chunks created:[/dim] {stats['chunks_created']}")
+    if stats["files_skipped"]:
+        console.print(f"[dim]Files skipped (unchanged):[/dim] {stats['files_skipped']}")
+
+
+@main.group()
+def projects() -> None:
+    """Manage indexed projects."""
+
+
+@projects.command("list")
+def projects_list() -> None:
+    """List all indexed projects."""
+    from rich.table import Table
+
+    from personality.index import list_indexed_projects
+
+    registry = list_indexed_projects()
+    if not registry:
+        console.print("[yellow]No projects indexed.[/yellow]")
+        console.print("[dim]Run 'psn index' in a project directory.[/dim]")
+        return
+
+    table = Table(title="Indexed Projects", show_header=True)
+    table.add_column("Project", style="cyan")
+    table.add_column("Index DB", style="dim")
+
+    for project_path, db_path in registry.items():
+        table.add_row(project_path, Path(db_path).name)
+
+    console.print(table)
+
+
+@projects.command("rm")
+@click.argument("path")
+def projects_rm(path: str) -> None:
+    """Remove a project index."""
+    import json
+
+    from personality.index.indexer import REGISTRY_FILE
+
+    if not REGISTRY_FILE.exists():
+        console.print("[yellow]No projects indexed.[/yellow]")
+        return
+
+    registry = json.loads(REGISTRY_FILE.read_text())
+
+    if path not in registry:
+        console.print(f"[red]Project not found:[/red] {path}")
+        return
+
+    db_path = Path(registry[path])
+    if db_path.exists():
+        db_path.unlink()
+        console.print(f"[green]Removed index:[/green] {db_path}")
+
+    del registry[path]
+    REGISTRY_FILE.write_text(json.dumps(registry, indent=2))
+    console.print(f"[green]Unregistered:[/green] {path}")
+
+
 def _resolve_text(text: str | None, input_file: str | None) -> str:
     """Resolve text from argument, file, or stdin."""
     if text:

@@ -26,12 +26,12 @@
 - [x] Step 4.6: Document Hook Configuration
 
 ## Phase 5: Project Indexing
-- [ ] Step 5.1: Create Index Schema
-- [ ] Step 5.2: Implement Code Chunker
-- [ ] Step 5.3: Implement ProjectIndexer
-- [ ] Step 5.4: Add Index CLI Commands
-- [ ] Step 5.5: Add Project MCP Tools
-- [ ] Step 5.6: Add Project Index Tests
+- [x] Step 5.1: Create Index Schema
+- [x] Step 5.2: Implement Code Chunker
+- [x] Step 5.3: Implement ProjectIndexer
+- [x] Step 5.4: Add Index CLI Commands
+- [x] Step 5.5: Add Project MCP Tools
+- [x] Step 5.6: Add Project Index Tests
 
 ## Phase 6: MCP Prompts
 - [ ] Step 6.1: Create Prompts Module

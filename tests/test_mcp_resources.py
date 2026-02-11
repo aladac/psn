@@ -1,7 +1,7 @@
 """Tests for personality.mcp.resources module."""
 
 import os
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from personality.mcp.resources import (
     _format_cart,
@@ -65,16 +65,20 @@ class TestGetCurrentCart:
     """Tests for get_current_cart resource."""
 
     def test_uses_default_cart_when_env_not_set(self) -> None:
-        with patch.dict(os.environ, {}, clear=True):
-            with patch("personality.mcp.resources.load_cart", return_value=None):
-                result = get_current_cart()
+        with (
+            patch.dict(os.environ, {}, clear=True),
+            patch("personality.mcp.resources.load_cart", return_value=None),
+        ):
+            result = get_current_cart()
         assert "bt7274" in result
 
     def test_uses_cart_from_environment(self) -> None:
         cart_data = {"preferences": {"identity": {"name": "Custom"}}}
-        with patch.dict(os.environ, {"PERSONALITY_CART": "custom"}):
-            with patch("personality.mcp.resources.load_cart", return_value=cart_data):
-                result = get_current_cart()
+        with (
+            patch.dict(os.environ, {"PERSONALITY_CART": "custom"}),
+            patch("personality.mcp.resources.load_cart", return_value=cart_data),
+        ):
+            result = get_current_cart()
         assert "Custom" in result
 
 
@@ -102,12 +106,12 @@ class TestListAvailableCarts:
         assert "No carts found" in result
 
     def test_lists_carts_with_details(self) -> None:
-        cart_data = {
-            "preferences": {"identity": {"name": "Test"}, "speak": {"voice": "v1"}}
-        }
-        with patch("personality.mcp.resources.list_carts", return_value=["test", "other"]):
-            with patch("personality.mcp.resources.load_cart", return_value=cart_data):
-                result = list_available_carts()
+        cart_data = {"preferences": {"identity": {"name": "Test"}, "speak": {"voice": "v1"}}}
+        with (
+            patch("personality.mcp.resources.list_carts", return_value=["test", "other"]),
+            patch("personality.mcp.resources.load_cart", return_value=cart_data),
+        ):
+            result = list_available_carts()
         assert "Available Carts" in result
         assert "test" in result
 
@@ -115,7 +119,116 @@ class TestListAvailableCarts:
         def load_side_effect(name: str) -> dict | None:
             return None if name == "broken" else {"preferences": {}}
 
-        with patch("personality.mcp.resources.list_carts", return_value=["good", "broken"]):
-            with patch("personality.mcp.resources.load_cart", side_effect=load_side_effect):
-                result = list_available_carts()
+        with (
+            patch("personality.mcp.resources.list_carts", return_value=["good", "broken"]),
+            patch("personality.mcp.resources.load_cart", side_effect=load_side_effect),
+        ):
+            result = list_available_carts()
         assert "failed to load" in result
+
+
+class TestListMemories:
+    """Tests for list_memories resource."""
+
+    def test_returns_no_store_message(self) -> None:
+        from personality.mcp.resources import list_memories
+
+        mock_ctx = MagicMock()
+        mock_ctx.request_context.lifespan_context.memory = None
+        result = list_memories(mock_ctx)
+        assert "not initialized" in result
+
+    def test_returns_no_memories_message(self) -> None:
+        from personality.mcp.resources import list_memories
+
+        mock_memory = MagicMock()
+        mock_memory.list_all.return_value = []
+        mock_ctx = MagicMock()
+        mock_ctx.request_context.lifespan_context.memory = mock_memory
+        result = list_memories(mock_ctx)
+        assert "No memories stored" in result
+
+    def test_lists_memories(self) -> None:
+        from personality.mcp.resources import list_memories
+
+        mock_mem = MagicMock()
+        mock_mem.id = 1
+        mock_mem.subject = "test"
+        mock_mem.content = "Test content"
+
+        mock_memory = MagicMock()
+        mock_memory.list_all.return_value = [mock_mem]
+        mock_ctx = MagicMock()
+        mock_ctx.request_context.lifespan_context.memory = mock_memory
+        result = list_memories(mock_ctx)
+        assert "Memories" in result
+        assert "test" in result
+
+
+class TestGetMemoriesBySubject:
+    """Tests for get_memories_by_subject resource."""
+
+    def test_returns_no_store_message(self) -> None:
+        from personality.mcp.resources import get_memories_by_subject
+
+        mock_ctx = MagicMock()
+        mock_ctx.request_context.lifespan_context.memory = None
+        result = get_memories_by_subject("test", mock_ctx)
+        assert "not initialized" in result
+
+    def test_returns_no_matches_message(self) -> None:
+        from personality.mcp.resources import get_memories_by_subject
+
+        mock_memory = MagicMock()
+        mock_memory.list_all.return_value = []
+        mock_ctx = MagicMock()
+        mock_ctx.request_context.lifespan_context.memory = mock_memory
+        result = get_memories_by_subject("test", mock_ctx)
+        assert "No memories found" in result
+
+    def test_returns_matching_memories(self) -> None:
+        from personality.mcp.resources import get_memories_by_subject
+
+        mock_mem = MagicMock()
+        mock_mem.id = 1
+        mock_mem.subject = "test.topic"
+        mock_mem.content = "Test content"
+        mock_mem.created_at = "2024-01-01"
+        mock_mem.accessed_at = "2024-01-02"
+
+        mock_memory = MagicMock()
+        mock_memory.list_all.return_value = [mock_mem]
+        mock_ctx = MagicMock()
+        mock_ctx.request_context.lifespan_context.memory = mock_memory
+        result = get_memories_by_subject("test", mock_ctx)
+        assert "test.topic" in result
+        assert "Test content" in result
+
+
+class TestGetProjectStatus:
+    """Tests for get_project_status resource."""
+
+    def test_returns_project_status(self) -> None:
+        from personality.mcp.resources import get_project_status
+
+        mock_indexer = MagicMock()
+        mock_indexer.status.return_value = {
+            "project_path": "/test/project",
+            "file_count": 5,
+            "chunk_count": 25,
+        }
+        mock_indexer.get_summary.return_value = "Test summary"
+
+        with patch("personality.index.get_indexer", return_value=mock_indexer):
+            result = get_project_status()
+
+        assert "Project:" in result
+        assert "5" in result
+
+    def test_handles_error(self) -> None:
+        from personality.mcp.resources import get_project_status
+
+        with patch("personality.index.get_indexer", side_effect=Exception("No index")):
+            result = get_project_status()
+
+        assert "Error" in result

@@ -1,6 +1,5 @@
 """Tests for personality.mcp.tools module."""
 
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -66,14 +65,14 @@ class TestSpeakTool:
     async def test_uses_cart_voice_when_no_override(self, mock_context: MagicMock) -> None:
         mock_speaker = MagicMock()
         with patch("personality.mcp.tools.Speak", return_value=mock_speaker):
-            result = await speak("hello", mock_context)
+            await speak("hello", mock_context)
         mock_speaker.say.assert_called_once_with("hello", "cart_voice")
 
     @pytest.mark.asyncio
     async def test_uses_cart_name_as_fallback(self, mock_context_no_cart: MagicMock) -> None:
         mock_speaker = MagicMock()
         with patch("personality.mcp.tools.Speak", return_value=mock_speaker):
-            result = await speak("hello", mock_context_no_cart)
+            await speak("hello", mock_context_no_cart)
         mock_speaker.say.assert_called_once_with("hello", "fallback")
 
     @pytest.mark.asyncio

@@ -10,7 +10,6 @@ from personality.mcp.server import AppContext, _get_memory_db_path
 from personality.mcp.tools import (
     DEFAULT_RECALL_LIMIT,
     _format_memories,
-    _get_ctx,
     consolidate,
     forget,
     recall,
@@ -87,9 +86,7 @@ class TestMemoryTools:
         assert "Error" in result
 
     @pytest.mark.asyncio
-    async def test_recall_returns_memories(
-        self, mock_ctx: MagicMock, memory_store: MemoryStore
-    ) -> None:
+    async def test_recall_returns_memories(self, mock_ctx: MagicMock, memory_store: MemoryStore) -> None:
         memory_store.remember("protocols", "Protocol 1: Link to Pilot")
         result = await recall("protocol", mock_ctx)
         assert "protocols" in result
@@ -100,9 +97,7 @@ class TestMemoryTools:
         assert "No relevant memories" in result
 
     @pytest.mark.asyncio
-    async def test_recall_with_limit(
-        self, mock_ctx: MagicMock, memory_store: MemoryStore
-    ) -> None:
+    async def test_recall_with_limit(self, mock_ctx: MagicMock, memory_store: MemoryStore) -> None:
         for i in range(10):
             memory_store.remember(f"test{i}", f"content {i}")
         result = await recall("test", mock_ctx, limit=3)
@@ -110,9 +105,7 @@ class TestMemoryTools:
         assert result.count("**[") <= 3
 
     @pytest.mark.asyncio
-    async def test_forget_removes_memory(
-        self, mock_ctx: MagicMock, memory_store: MemoryStore
-    ) -> None:
+    async def test_forget_removes_memory(self, mock_ctx: MagicMock, memory_store: MemoryStore) -> None:
         mem_id = memory_store.remember("test", "to delete")
         result = await forget(mem_id, mock_ctx)
         assert f"Forgot memory {mem_id}" in result
@@ -187,3 +180,86 @@ class TestConstants:
 
     def test_default_recall_limit(self) -> None:
         assert DEFAULT_RECALL_LIMIT == 5
+
+
+class TestProjectTools:
+    """Tests for project MCP tools."""
+
+    @pytest.mark.asyncio
+    async def test_project_search_returns_results(self) -> None:
+        from personality.mcp.tools import project_search
+
+        mock_indexer = MagicMock()
+        mock_indexer.search.return_value = [
+            MagicMock(
+                file_path="test.py",
+                chunk_type="function",
+                name="test_func",
+                content="def test(): pass",
+                start_line=1,
+                end_line=1,
+                score=0.9,
+            )
+        ]
+
+        with patch("personality.index.get_indexer", return_value=mock_indexer):
+            result = await project_search("test function")
+
+        assert "test.py" in result
+        mock_indexer.close.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_project_search_no_results(self) -> None:
+        from personality.mcp.tools import project_search
+
+        mock_indexer = MagicMock()
+        mock_indexer.search.return_value = []
+
+        with patch("personality.index.get_indexer", return_value=mock_indexer):
+            result = await project_search("nonexistent")
+
+        assert "No matching code" in result
+
+    @pytest.mark.asyncio
+    async def test_project_search_handles_error(self) -> None:
+        from personality.mcp.tools import project_search
+
+        with patch("personality.index.get_indexer", side_effect=Exception("Index not found")):
+            result = await project_search("test")
+
+        assert "Error" in result
+
+    @pytest.mark.asyncio
+    async def test_project_summary(self) -> None:
+        from personality.mcp.tools import project_summary
+
+        mock_indexer = MagicMock()
+        mock_indexer.get_summary.return_value = "Test project summary"
+        mock_indexer.status.return_value = {
+            "project_path": "/test/path",
+            "file_count": 10,
+            "chunk_count": 50,
+        }
+
+        with patch("personality.index.get_indexer", return_value=mock_indexer):
+            result = await project_summary()
+
+        assert "Test project summary" in result
+        assert "10" in result
+
+    @pytest.mark.asyncio
+    async def test_project_summary_no_summary(self) -> None:
+        from personality.mcp.tools import project_summary
+
+        mock_indexer = MagicMock()
+        mock_indexer.get_summary.return_value = None
+        mock_indexer.status.return_value = {
+            "project_path": "/test/path",
+            "file_count": 0,
+            "chunk_count": 0,
+        }
+
+        with patch("personality.index.get_indexer", return_value=mock_indexer):
+            result = await project_summary()
+
+        assert "No summary" in result

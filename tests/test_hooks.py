@@ -5,8 +5,6 @@ import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from personality.hooks import (
     DEFAULT_CART,
     HookResult,
@@ -120,9 +118,7 @@ class TestSessionStart:
         mock_speaker: MagicMock,
         mock_log: MagicMock,
     ) -> None:
-        mock_load.return_value = {
-            "preferences": {"identity": {"name": "BT-7274", "tagline": "Protocol 3"}}
-        }
+        mock_load.return_value = {"preferences": {"identity": {"name": "BT-7274", "tagline": "Protocol 3"}}}
         mock_speaker.return_value = (MagicMock(), "bt7274")
 
         result = session_start("bt7274")
@@ -133,9 +129,7 @@ class TestSessionStart:
 
     @patch("personality.hooks.log_hook")
     @patch("personality.hooks.load_cart")
-    def test_returns_error_when_cart_not_found(
-        self, mock_load: MagicMock, mock_log: MagicMock
-    ) -> None:
+    def test_returns_error_when_cart_not_found(self, mock_load: MagicMock, mock_log: MagicMock) -> None:
         mock_load.return_value = None
         result = session_start("nonexistent")
         assert result.status == "error"
@@ -146,9 +140,7 @@ class TestSessionEnd:
 
     @patch("personality.hooks.log_hook")
     @patch("personality.hooks.get_speaker")
-    def test_returns_consolidated_count(
-        self, mock_speaker: MagicMock, mock_log: MagicMock
-    ) -> None:
+    def test_returns_consolidated_count(self, mock_speaker: MagicMock, mock_log: MagicMock) -> None:
         mock_speaker.return_value = (MagicMock(), "test")
         result = session_end("test")
         assert result.status == "ok"

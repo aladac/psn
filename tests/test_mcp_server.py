@@ -33,15 +33,19 @@ class TestGetActiveCart:
     """Tests for _get_active_cart function."""
 
     def test_returns_default_cart_when_env_not_set(self) -> None:
-        with patch.dict(os.environ, {}, clear=True):
-            with patch("personality.mcp.server.load_cart", return_value=None):
-                name, data = _get_active_cart()
+        with (
+            patch.dict(os.environ, {}, clear=True),
+            patch("personality.mcp.server.load_cart", return_value=None),
+        ):
+            name, data = _get_active_cart()
         assert name == "bt7274"
 
     def test_returns_cart_from_environment(self) -> None:
-        with patch.dict(os.environ, {"PERSONALITY_CART": "custom"}):
-            with patch("personality.mcp.server.load_cart", return_value={"test": True}):
-                name, data = _get_active_cart()
+        with (
+            patch.dict(os.environ, {"PERSONALITY_CART": "custom"}),
+            patch("personality.mcp.server.load_cart", return_value={"test": True}),
+        ):
+            name, data = _get_active_cart()
         assert name == "custom"
         assert data == {"test": True}
 
@@ -60,12 +64,14 @@ async def test_app_lifespan():
     """Test app_lifespan context manager."""
     from personality.mcp.server import app_lifespan, mcp
 
-    with patch("personality.mcp.server.load_cart", return_value={"preferences": {}}):
-        with patch.dict(os.environ, {"PERSONALITY_CART": "test"}):
-            async with app_lifespan(mcp) as ctx:
-                assert ctx.cart_name == "test"
-                assert ctx.cart_data == {"preferences": {}}
-                assert ctx.voice_dir is not None
+    with (
+        patch("personality.mcp.server.load_cart", return_value={"preferences": {}}),
+        patch.dict(os.environ, {"PERSONALITY_CART": "test"}),
+    ):
+        async with app_lifespan(mcp) as ctx:
+            assert ctx.cart_name == "test"
+            assert ctx.cart_data == {"preferences": {}}
+            assert ctx.voice_dir is not None
 
 
 class TestRunServer:

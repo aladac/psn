@@ -148,3 +148,28 @@ def get_memories_by_subject(
         lines.append(f"\n*Created: {mem.created_at}, Accessed: {mem.accessed_at}*\n")
 
     return "\n".join(lines)
+
+
+@mcp.resource("personality://project")
+def get_project_status() -> str:
+    """Get current project index status."""
+    from pathlib import Path
+
+    from personality.index import get_indexer
+
+    try:
+        indexer = get_indexer(Path.cwd())
+        status = indexer.status()
+        summary = indexer.get_summary()
+        indexer.close()
+
+        lines = [f"# Project: {status['project_path']}\n"]
+        lines.append(f"- **Files indexed**: {status['file_count']}")
+        lines.append(f"- **Code chunks**: {status['chunk_count']}")
+
+        if summary:
+            lines.append(f"\n## Summary\n\n{summary}")
+
+        return "\n".join(lines)
+    except Exception as e:
+        return f"Error loading project index: {e}"

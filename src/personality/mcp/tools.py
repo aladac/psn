@@ -51,13 +51,13 @@ async def speak(
         speaker.say(text, voice_name)
         return f"Spoke: {text[:50]}{'...' if len(text) > 50 else ''}"
     except FileNotFoundError as e:
-        logger.warning("speak_voice_not_found", error=str(e))
+        logger.warning("speak_voice_not_found: %s", e)
         return f"Voice not found: {voice_name}"
     except RuntimeError as e:
-        logger.warning("speak_playback_error", error=str(e))
+        logger.warning("speak_playback_error: %s", e)
         return f"Playback error: {e}"
     except Exception as e:
-        logger.warning("speak_error", error=str(e))
+        logger.warning("speak_error: %s", e)
         return f"Error: {e}"
 
 
@@ -160,5 +160,75 @@ def _format_memories(memories: list[Memory]) -> str:
     for mem in memories:
         lines.append(f"**[{mem.id}] {mem.subject}** (score: {mem.score:.2f})")
         lines.append(f"  {mem.content[:200]}{'...' if len(mem.content) > 200 else ''}")
+        lines.append("")
+    return "\n".join(lines)
+
+
+@mcp.tool()
+async def project_search(
+    query: str,
+    limit: int = 5,
+) -> str:
+    """
+    Search the current project's code index.
+
+    Args:
+        query: Search query for code
+        limit: Maximum results to return (default 5)
+    """
+    from pathlib import Path
+
+    from personality.index import get_indexer
+
+    try:
+        indexer = get_indexer(Path.cwd())
+        results = indexer.search(query, k=limit)
+        indexer.close()
+
+        if not results:
+            return "No matching code found. Is the project indexed? Run `psn index`"
+
+        return _format_search_results(results)
+    except Exception as e:
+        logger.warning("project_search_error: %s", e)
+        return f"Error searching project: {e}"
+
+
+@mcp.tool()
+async def project_summary() -> str:
+    """Get the current project's summary from the index."""
+    from pathlib import Path
+
+    from personality.index import get_indexer
+
+    try:
+        indexer = get_indexer(Path.cwd())
+        summary = indexer.get_summary()
+        status = indexer.status()
+        indexer.close()
+
+        lines = [f"# Project: {status['project_path']}\n"]
+        lines.append(f"- **Files indexed**: {status['file_count']}")
+        lines.append(f"- **Code chunks**: {status['chunk_count']}")
+
+        if summary:
+            lines.append(f"\n## Summary\n\n{summary}")
+        else:
+            lines.append("\n*No summary generated yet.*")
+
+        return "\n".join(lines)
+    except Exception as e:
+        logger.warning("project_summary_error: %s", e)
+        return f"Error getting project summary: {e}"
+
+
+def _format_search_results(results: list) -> str:
+    """Format search results as markdown."""
+    lines = []
+    for r in results:
+        name = r.name or r.chunk_type
+        lines.append(f"**{r.file_path}:{r.start_line}** `{name}` (score: {r.score:.2f})")
+        content_preview = r.content[:150].replace("\n", " ")
+        lines.append(f"  {content_preview}...")
         lines.append("")
     return "\n".join(lines)

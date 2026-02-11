@@ -1,6 +1,5 @@
 """Tests for personality.memory.store and schema modules."""
 
-import sqlite3
 import struct
 import tempfile
 from pathlib import Path
@@ -68,9 +67,7 @@ class TestSchema:
             db_path = Path(tmpdir) / "test.db"
             conn = init_database(db_path, 3)
 
-            tables = conn.execute(
-                "SELECT name FROM sqlite_master WHERE type='table'"
-            ).fetchall()
+            tables = conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
             table_names = [t[0] for t in tables]
 
             assert "memories" in table_names
@@ -146,14 +143,10 @@ class TestMemoryStore:
 
     def test_remember_with_source(self, store: MemoryStore) -> None:
         mem_id = store.remember("test", "content", source="learned")
-        row = store.conn.execute(
-            "SELECT source FROM memories WHERE id = ?", (mem_id,)
-        ).fetchone()
+        row = store.conn.execute("SELECT source FROM memories WHERE id = ?", (mem_id,)).fetchone()
         assert row[0] == "learned"
 
-    def test_remember_creates_embedding(
-        self, store: MemoryStore, mock_embedder: MagicMock
-    ) -> None:
+    def test_remember_creates_embedding(self, store: MemoryStore, mock_embedder: MagicMock) -> None:
         store.remember("test", "content")
         mock_embedder.embed.assert_called_once_with("test: content")
 
@@ -172,9 +165,7 @@ class TestMemoryStore:
         mem_id = store.remember("test", "to delete")
         assert store.forget(mem_id) is True
 
-        row = store.conn.execute(
-            "SELECT * FROM memories WHERE id = ?", (mem_id,)
-        ).fetchone()
+        row = store.conn.execute("SELECT * FROM memories WHERE id = ?", (mem_id,)).fetchone()
         assert row is None
 
     def test_forget_nonexistent_returns_false(self, store: MemoryStore) -> None:
@@ -185,9 +176,7 @@ class TestMemoryStore:
         assert result == []
 
     @patch("personality.memory.store.MemoryStore._cosine_similarity")
-    def test_recall_finds_memory(
-        self, mock_sim: MagicMock, store: MemoryStore
-    ) -> None:
+    def test_recall_finds_memory(self, mock_sim: MagicMock, store: MemoryStore) -> None:
         mock_sim.return_value = 0.9
         store.remember("protocols", "Protocol 1: Link to Pilot")
 
@@ -199,9 +188,7 @@ class TestMemoryStore:
         store.remember("test", "content")
         store.recall("test")
 
-        row = store.conn.execute(
-            "SELECT access_count FROM memories WHERE id = 1"
-        ).fetchone()
+        row = store.conn.execute("SELECT access_count FROM memories WHERE id = 1").fetchone()
         assert row[0] == 1
 
     def test_close_releases_connection(self, store: MemoryStore) -> None:
@@ -249,17 +236,13 @@ class TestMemoryStoreConsolidate:
         result = store.consolidate()
         assert result == 0
 
-    def test_consolidate_single_memory(
-        self, store: MemoryStore, mock_embedder: MagicMock
-    ) -> None:
+    def test_consolidate_single_memory(self, store: MemoryStore, mock_embedder: MagicMock) -> None:
         mock_embedder.embed.return_value = [0.1, 0.2, 0.3]
         store.remember("test", "content")
         result = store.consolidate()
         assert result == 0
 
-    def test_consolidate_merges_similar(
-        self, store: MemoryStore, mock_embedder: MagicMock
-    ) -> None:
+    def test_consolidate_merges_similar(self, store: MemoryStore, mock_embedder: MagicMock) -> None:
         mock_embedder.embed.return_value = [0.5, 0.5, 0.5]
         store.remember("protocols", "Protocol 1")
         store.remember("protocols", "Protocol 1 detail")
@@ -268,9 +251,7 @@ class TestMemoryStoreConsolidate:
         assert merged == 1
         assert len(store.list_all()) == 1
 
-    def test_consolidate_preserves_different_subjects(
-        self, store: MemoryStore, mock_embedder: MagicMock
-    ) -> None:
+    def test_consolidate_preserves_different_subjects(self, store: MemoryStore, mock_embedder: MagicMock) -> None:
         mock_embedder.embed.return_value = [0.5, 0.5, 0.5]
         store.remember("protocols", "Protocol 1")
         store.remember("different", "Protocol 1")

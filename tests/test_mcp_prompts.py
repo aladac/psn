@@ -4,8 +4,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from personality.mcp.server import AppContext
 from personality.mcp.prompts import _get_ctx, speak
+from personality.mcp.server import AppContext
 
 
 class TestGetCtx:
@@ -49,9 +49,7 @@ class TestSpeakPrompt:
         return ctx
 
     @pytest.mark.asyncio
-    async def test_generates_speak_prompt_with_persona(
-        self, mock_context: MagicMock
-    ) -> None:
+    async def test_generates_speak_prompt_with_persona(self, mock_context: MagicMock) -> None:
         result = await speak("Hello world", mock_context)
         assert "Test Bot" in result
         assert "voice: test_voice" in result
@@ -59,17 +57,13 @@ class TestSpeakPrompt:
         assert "speak" in result.lower()
 
     @pytest.mark.asyncio
-    async def test_uses_cart_name_when_no_identity(
-        self, mock_context_no_cart: MagicMock
-    ) -> None:
+    async def test_uses_cart_name_when_no_identity(self, mock_context_no_cart: MagicMock) -> None:
         result = await speak("Hello", mock_context_no_cart)
         assert "fallback" in result
         assert "Hello" in result
 
     @pytest.mark.asyncio
-    async def test_omits_voice_when_not_configured(
-        self, mock_context_no_cart: MagicMock
-    ) -> None:
+    async def test_omits_voice_when_not_configured(self, mock_context_no_cart: MagicMock) -> None:
         result = await speak("Hello", mock_context_no_cart)
         assert "voice:" not in result
 

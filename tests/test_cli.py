@@ -61,9 +61,11 @@ class TestSpeakCommand:
 
     def test_error_when_cart_not_found(self) -> None:
         runner = CliRunner()
-        with patch("personality.cli.load_cart", return_value=None):
-            with patch("personality.cli.list_carts", return_value=["other"]):
-                result = runner.invoke(main, ["speak", "hello", "-c", "missing"])
+        with (
+            patch("personality.cli.load_cart", return_value=None),
+            patch("personality.cli.list_carts", return_value=["other"]),
+        ):
+            result = runner.invoke(main, ["speak", "hello", "-c", "missing"])
         assert result.exit_code == 1
         assert "Cart not found" in result.output
 
@@ -86,9 +88,7 @@ class TestSpeakCommand:
             patch("personality.cli.load_cart", return_value={"preferences": {}}),
             patch("personality.cli.Speak", return_value=mock_speaker),
         ):
-            result = runner.invoke(
-                main, ["speak", "hello", "-c", "test", "-o", str(output_file)]
-            )
+            result = runner.invoke(main, ["speak", "hello", "-c", "test", "-o", str(output_file)])
         assert result.exit_code == 0
         assert "Audio saved" in result.output
         mock_speaker.save.assert_called_once()
@@ -247,3 +247,93 @@ class TestUninstallCommand:
             result = runner.invoke(main, ["uninstall"])
         assert result.exit_code == 0
         assert "No commands installed" in result.output
+
+
+class TestIndexCommand:
+    """Tests for index command."""
+
+    def test_index_shows_status(self, tmp_path: Path) -> None:
+        runner = CliRunner()
+        mock_indexer = MagicMock()
+        mock_indexer.status.return_value = {
+            "project_path": str(tmp_path),
+            "db_path": str(tmp_path / "test.db"),
+            "file_count": 5,
+            "chunk_count": 20,
+            "has_summary": False,
+        }
+
+        with patch("personality.index.get_indexer", return_value=mock_indexer):
+            result = runner.invoke(main, ["index", "--status"])
+
+        assert result.exit_code == 0
+        assert "Files:" in result.output
+        mock_indexer.close.assert_called_once()
+
+    def test_index_runs_indexing(self, tmp_path: Path) -> None:
+        runner = CliRunner()
+        mock_indexer = MagicMock()
+        mock_indexer.index.return_value = {
+            "files_indexed": 3,
+            "chunks_created": 15,
+            "files_skipped": 0,
+        }
+
+        with patch("personality.index.get_indexer", return_value=mock_indexer):
+            result = runner.invoke(main, ["index"])
+
+        assert result.exit_code == 0
+        assert "Files indexed:" in result.output
+
+
+class TestProjectsCommand:
+    """Tests for projects command."""
+
+    def test_projects_list_empty(self) -> None:
+        runner = CliRunner()
+        with patch("personality.index.list_indexed_projects", return_value={}):
+            result = runner.invoke(main, ["projects", "list"])
+        assert result.exit_code == 0
+        assert "No projects indexed" in result.output
+
+    def test_projects_list_shows_projects(self) -> None:
+        runner = CliRunner()
+        registry = {"/path/to/project": "/tmp/abc123.db"}
+        with patch("personality.index.list_indexed_projects", return_value=registry):
+            result = runner.invoke(main, ["projects", "list"])
+        assert result.exit_code == 0
+        assert "project" in result.output
+
+
+class TestHookCommands:
+    """Tests for hook CLI commands."""
+
+    def test_hook_session_start(self) -> None:
+        runner = CliRunner()
+        with patch("personality.hooks.session_start") as mock_start:
+            mock_start.return_value = MagicMock(to_json=lambda: '{"status":"ok"}')
+            result = runner.invoke(main, ["hook", "session-start"])
+        assert result.exit_code == 0
+        assert "ok" in result.output
+
+    def test_hook_session_end(self) -> None:
+        runner = CliRunner()
+        with patch("personality.hooks.session_end") as mock_end:
+            mock_end.return_value = MagicMock(to_json=lambda: '{"status":"ok"}')
+            result = runner.invoke(main, ["hook", "session-end"])
+        assert result.exit_code == 0
+
+    def test_hook_stop(self) -> None:
+        runner = CliRunner()
+        with patch("personality.hooks.stop") as mock_stop:
+            mock_stop.return_value = MagicMock(to_json=lambda: '{"status":"ok"}')
+            result = runner.invoke(main, ["hook", "stop"])
+        assert result.exit_code == 0
+
+    def test_hook_notify_with_message(self) -> None:
+        runner = CliRunner()
+        with patch("personality.hooks.notify") as mock_notify:
+            mock_notify.return_value = MagicMock(to_json=lambda: '{"status":"ok"}')
+            result = runner.invoke(main, ["hook", "notify", "-m", "Hello"])
+        assert result.exit_code == 0
+        mock_notify.assert_called_once()
