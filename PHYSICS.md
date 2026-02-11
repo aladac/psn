@@ -6,7 +6,12 @@ Claude Code tool and hook reference for the Personality project.
 
 Tools exposed by the personality MCP server as Claude perceives them:
 
-- `mcp__personality__speak` - Speak text aloud using the configured personality voice
+- `mcp__personality__speak` - Speak short text aloud (greetings, confirmations, warnings only)
+- `mcp__personality__stop_speaking` - Immediately stop any ongoing TTS playback
+- `mcp__personality__remember` - Store a memory with subject and content for later recall
+- `mcp__personality__recall` - Search memories using hybrid vector + full-text search
+- `mcp__personality__forget` - Delete a specific memory by ID
+- `mcp__personality__consolidate` - Merge similar memories to reduce redundancy
 
 ## Base Claude Code Tools
 

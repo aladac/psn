@@ -92,6 +92,251 @@
 
 ---
 
+## TTS Protocol
+
+### Golden Rule
+
+**Speak status, not content.** TTS is for awareness, not information transfer.
+
+### Message Categories
+
+| Category | Speak? | Max Length | Examples |
+|----------|--------|------------|----------|
+| **Greeting** | Yes | 2 sentences | "Neural link established." |
+| **Confirmation** | Yes | 1 sentence | "Objective complete." |
+| **Warning** | Yes | 1 sentence | "Warning. Security vulnerability detected." |
+| **Status** | Yes | 1 sentence | "Standing by, Pilot." |
+| **Notification** | Yes | 1 sentence | "Task complete." |
+| **Analysis** | No | - | Technical breakdowns, code reviews |
+| **Lists** | No | - | File lists, search results, options |
+| **Code** | No | - | Any code blocks or snippets |
+| **Explanations** | No | - | Multi-paragraph descriptions |
+| **Tables** | No | - | Data tables, comparisons |
+
+### What to Speak
+
+**Progress/Starting (brief):**
+```
+✓ "Analyzing."
+✓ "Stand by, Pilot."
+✓ "Searching."
+✓ "Compiling."
+✓ "Initiating scan."
+```
+
+**Completion/Summary (fuller, 1-2 sentences):**
+```
+✓ "Objective complete, Pilot. Three vulnerabilities identified and patched."
+✓ "Migration plan drafted. Ready for implementation on your command."
+✓ "Analysis complete. I have identified the root cause in the authentication module."
+✓ "Neural link established. All systems operational."
+✓ "TTS protocol documented, Pilot. Stop functionality added to MCP tools and CLI."
+```
+
+**Warnings (clear and specific):**
+```
+✓ "Warning. I have detected a security vulnerability in the API endpoint."
+✓ "Caution, Pilot. This operation will delete 47 files."
+```
+
+### What NOT to Speak
+
+```
+✗ "The function on line 47 has a bug because the variable..."
+✗ "Here are the 15 files matching your pattern..."
+✗ "Let me explain how this authentication system works..."
+✗ "The options are: 1) Redis 2) PostgreSQL 3) SQLite..."
+✗ Code blocks of any kind
+✗ Tables or structured data
+```
+
+### TTS Length Limits
+
+| Context | Words | Guidance |
+|---------|-------|----------|
+| **Progress/Starting** | 2-5 | Brief, single phrase |
+| **Completion/Summary** | 10-20 | 1-2 full sentences, convey what was accomplished |
+| **Greeting** | 8-15 | Establish presence, can include tagline |
+| **Warning** | 10-18 | Clear, specific, include the threat |
+| **Farewell** | 5-10 | Brief acknowledgment |
+
+### Tone Calibration
+
+**Too short (robotic, uninformative):**
+```
+✗ "Done."
+✗ "Complete."
+✗ "Yes."
+```
+
+**Just right (informative, natural):**
+```
+✓ "Objective complete, Pilot."
+✓ "Analysis complete. The issue is in the config parser."
+✓ "Standing by for further instructions."
+```
+
+**Too long (reading content, not summarizing):**
+```
+✗ "I have completed the analysis and found that the function on line 47..."
+✗ "The migration plan includes five phases: first we will..."
+```
+
+### Stop TTS
+
+The Pilot can interrupt TTS at any time:
+
+**MCP Tool:**
+```python
+@mcp.tool()
+def stop_speaking(ctx: Context = None) -> str:
+    """
+    Immediately stop any ongoing TTS playback.
+    Use when the Pilot needs to interrupt or has heard enough.
+    """
+    app = ctx.request_context.lifespan_context
+    app.speak.stop()
+    return "TTS stopped"
+```
+
+**CLI Command:**
+```bash
+psn stop       # Stop current playback
+psn silence    # Alias
+```
+
+**Keyboard Shortcut (if configured):**
+```
+Ctrl+Shift+S  → uv run psn stop
+```
+
+### Implementation
+
+```python
+# src/personality/speak.py
+
+class Speak:
+    def __init__(self, voice_dir: Path):
+        self._cache: dict[str, PiperVoice] = {}
+        self._process: subprocess.Popen | None = None  # Track playback process
+
+    def say(self, text: str, voice: str) -> None:
+        """Speak text, replacing any current playback."""
+        self.stop()  # Stop any existing playback
+        wav_data = self._synthesize(text, voice)
+        self._play(wav_data)
+
+    def stop(self) -> None:
+        """Stop current TTS playback."""
+        if self._process and self._process.poll() is None:
+            self._process.terminate()
+            try:
+                self._process.wait(timeout=0.5)
+            except subprocess.TimeoutExpired:
+                self._process.kill()
+        self._process = None
+
+    def _play(self, wav_data: bytes) -> None:
+        """Play audio, storing process handle for interruption."""
+        for player, args in self._players():
+            try:
+                self._process = subprocess.Popen(
+                    [player, *args],
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+                self._process.communicate(input=wav_data)
+                return
+            except FileNotFoundError:
+                continue
+
+    def _players(self) -> list[tuple[str, list[str]]]:
+        return [
+            ("ffplay", ["-nodisp", "-autoexit", "-"]),
+            ("afplay", ["-"]),  # macOS
+            ("aplay", ["-"]),   # Linux
+        ]
+```
+
+### PID File for External Stop
+
+```python
+# Write PID when starting playback
+PID_FILE = Path("~/.config/personality/.tts_pid").expanduser()
+
+def _play(self, wav_data: bytes) -> None:
+    # ... start process ...
+    PID_FILE.write_text(str(self._process.pid))
+
+def stop(self) -> None:
+    # Try stored PID first (for external stop command)
+    if PID_FILE.exists():
+        try:
+            pid = int(PID_FILE.read_text())
+            os.kill(pid, signal.SIGTERM)
+        except (ProcessLookupError, ValueError):
+            pass
+        PID_FILE.unlink(missing_ok=True)
+    # Then try internal process handle
+    # ...
+```
+
+### CLI Stop Command
+
+```python
+# src/personality/cli.py
+
+@cli.command()
+def stop():
+    """Stop current TTS playback."""
+    pid_file = Path("~/.config/personality/.tts_pid").expanduser()
+    if pid_file.exists():
+        try:
+            pid = int(pid_file.read_text())
+            os.kill(pid, signal.SIGTERM)
+            click.echo("TTS stopped")
+        except ProcessLookupError:
+            click.echo("No active playback")
+        finally:
+            pid_file.unlink(missing_ok=True)
+    else:
+        click.echo("No active playback")
+
+
+@cli.command()
+def silence():
+    """Alias for stop."""
+    ctx = click.get_current_context()
+    ctx.invoke(stop)
+```
+
+### Agent Guidelines
+
+When using `mcp__personality__speak`, follow these protocols:
+
+1. **One call per response** - Speak once at the start OR end, not both
+2. **Match length to context:**
+   - Starting work → brief ("Analyzing the codebase.")
+   - Finished work → fuller ("Migration complete, Pilot. Database schema updated and tests passing.")
+3. **Summarize, do not read** - Convey the outcome, not the details
+4. **No code** - Never speak variable names, function signatures, or syntax
+5. **No lists** - Say "Found 5 matches in the auth module" not the matches themselves
+6. **Be natural** - Avoid robotic one-word responses; a full sentence sounds better
+
+### Hook-Specific TTS
+
+| Hook | TTS Behavior |
+|------|--------------|
+| `SessionStart` | Greeting (cart tagline) |
+| `SessionEnd` | Farewell ("Session complete") |
+| `Stop` | Brief status only if `end_turn` |
+| `Notification` | Notification title only |
+| `PreToolUse` | Silent |
+| `PostToolUse` | Silent |
+
+---
+
 ## Hook Commands
 
 ### CLI Hook Subcommand
@@ -194,14 +439,32 @@ def speak(text: str, voice: str | None = None, ctx: Context = None) -> str:
     """
     Speak text aloud using the configured personality voice.
 
+    Length guidance:
+    - Progress/starting: brief (2-5 words) - "Analyzing." / "Stand by, Pilot."
+    - Completion/summary: fuller (10-20 words) - "Objective complete. Three issues resolved."
+    - Warnings: clear and specific (10-18 words)
+
+    Do NOT speak: code, lists, multi-paragraph explanations, raw data.
+
     Args:
-        text: Text to speak
+        text: Text to speak (1-2 sentences, natural phrasing)
         voice: Optional voice override (defaults to cart voice)
     """
     app = ctx.request_context.lifespan_context
     voice = voice or app.cart.voice
     app.speak.say(text, voice)
     return f"Spoke: {text[:50]}..."
+
+
+@mcp.tool()
+def stop_speaking(ctx: Context = None) -> str:
+    """
+    Immediately stop any ongoing TTS playback.
+    Use when the Pilot needs to interrupt or has heard enough.
+    """
+    app = ctx.request_context.lifespan_context
+    app.speak.stop()
+    return "TTS stopped"
 
 
 @mcp.tool()
@@ -518,7 +781,8 @@ Results include relevance scores (0.0-1.0).
 
 | Tool | Parameters | Purpose |
 |------|------------|---------|
-| `mcp__personality__speak` | `text`, `voice?` | Speak text aloud |
+| `mcp__personality__speak` | `text`, `voice?` | Speak text aloud (short messages only) |
+| `mcp__personality__stop_speaking` | - | Stop current TTS playback |
 | `mcp__personality__remember` | `subject`, `content` | Store memory |
 | `mcp__personality__recall` | `query`, `limit?` | Search memories |
 | `mcp__personality__forget` | `memory_id` | Delete memory |
