@@ -34,12 +34,12 @@
 - [x] Step 5.6: Add Project Index Tests
 
 ## Phase 6: MCP Prompts
-- [ ] Step 6.1: Create Prompts Module
-- [ ] Step 6.2: Implement persona_scaffold Prompt
-- [ ] Step 6.3: Implement conversation_starter Prompt
-- [ ] Step 6.4: Implement learning_interaction Prompt
-- [ ] Step 6.5: Implement project_overview Prompt
-- [ ] Step 6.6: Implement decision_support Prompt
+- [x] Step 6.1: Create Prompts Module
+- [x] Step 6.2: Implement persona_scaffold Prompt
+- [x] Step 6.3: Implement conversation_starter Prompt
+- [x] Step 6.4: Implement learning_interaction Prompt
+- [x] Step 6.5: Implement project_overview Prompt
+- [x] Step 6.6: Implement decision_support Prompt
 
 ## Phase 7: Portable Cartridge Format
 - [ ] Step 7.1: Define Manifest Schema
