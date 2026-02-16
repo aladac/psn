@@ -1,0 +1,19 @@
+{
+  "name": "personality",
+  "version": "0.1.0",
+  "description": "Infrastructure layer for Claude Code: Docker, Ollama, SSH, PostgreSQL, SQLite, memory, indexing, TTS",
+  "author": {
+    "name": "chi",
+    "email": "chi@tengu.host"
+  },
+  "keywords": [
+    "infrastructure",
+    "memory",
+    "embeddings",
+    "docker",
+    "ollama",
+    "postgres",
+    "sqlite",
+    "tts"
+  ]
+}

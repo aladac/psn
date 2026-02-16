@@ -1,0 +1,58 @@
+{
+  "mcpServers": {
+    "docker-local": {
+      "command": "python",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/servers/docker_local.py"],
+      "env": {}
+    },
+    "docker-remote": {
+      "command": "python",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/servers/docker_remote.py"],
+      "env": {
+        "JUNKPILE_HOST": "junkpile",
+        "SSH_KEY": "/Users/chi/.ssh/id_ed25519"
+      }
+    },
+    "ollama": {
+      "command": "python",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/servers/ollama.py"],
+      "env": {
+        "JUNKPILE_HOST": "junkpile",
+        "SSH_KEY": "/Users/chi/.ssh/id_ed25519"
+      }
+    },
+    "postgres": {
+      "command": "python",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/servers/postgres.py"],
+      "env": {
+        "JUNKPILE_HOST": "junkpile",
+        "SSH_KEY": "/Users/chi/.ssh/id_ed25519",
+        "PG_DATABASE": "personality"
+      }
+    },
+    "sqlite": {
+      "command": "python",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/servers/sqlite.py"],
+      "env": {}
+    },
+    "memory": {
+      "command": "python",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/servers/memory.py"],
+      "env": {
+        "EMBEDDING_MODEL": "nomic-embed-text"
+      }
+    },
+    "indexer": {
+      "command": "python",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/servers/indexer.py"],
+      "env": {
+        "EMBEDDING_MODEL": "nomic-embed-text"
+      }
+    },
+    "tts": {
+      "command": "python",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/servers/tts.py"],
+      "env": {}
+    }
+  }
+}
