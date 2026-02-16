@@ -28,7 +28,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "psn hooks stop",
+            "command": "psn memory save",
             "timeout": 5000
           }
         ]
@@ -83,7 +83,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "psn hooks pre-compact",
+            "command": "psn memory save",
             "timeout": 5000
           }
         ]
