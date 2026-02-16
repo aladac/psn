@@ -46,6 +46,9 @@ htmlcov/
 # Generated carts
 carts/
 
+# Generated data
+data/
+
 # OS
 .DS_Store
 Thumbs.db

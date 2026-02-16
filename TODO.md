@@ -17,9 +17,9 @@
 - [x] Step 3.3: Add TTS Integration (persona voice switching)
 
 ## Phase 4: Knowledge Graph
-- [ ] Step 4.1: Add Knowledge Table (subject-predicate-object triples)
-- [ ] Step 4.2: Implement Knowledge Service (CRUD + semantic search)
-- [ ] Step 4.3: Add Knowledge CLI (add, query, search, list)
+- [x] Step 4.1: Add Knowledge Schema (subject-predicate-object triples)
+- [x] Step 4.2: Implement Knowledge Service (CRUD + semantic search)
+- [x] Step 4.3: Add Knowledge CLI (add, query, search, list)
 
 ## Phase 5: Decision Tracking
 - [ ] Step 5.1: Add Decision Table (title, context, rationale, alternatives)
@@ -39,4 +39,4 @@
 
 ---
 
-**Total:** 10/22 steps completed
+**Total:** 13/22 steps completed

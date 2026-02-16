@@ -1,5 +1,9 @@
 """Pydantic schemas for personality plugin."""
 
+from personality.schemas.knowledge import (
+    KnowledgeStore,
+    KnowledgeTriple,
+)
 from personality.schemas.pcart import (
     CartManifest,
     Cartridge,
@@ -26,4 +30,7 @@ __all__ = [
     "PersonaConfig",
     "PreferencesConfig",
     "TTSConfig",
+    # Knowledge
+    "KnowledgeStore",
+    "KnowledgeTriple",
 ]
