@@ -1,29 +1,29 @@
 {
   "mcpServers": {
     "docker-local": {
-      "command": "python3",
-      "args": ["/Users/chi/Projects/personality/servers/docker_local.py"],
+      "command": "/Users/chi/.local/venvs/psn/bin/psn",
+      "args": ["mcp", "docker-local"],
       "env": {}
     },
     "docker-remote": {
-      "command": "python3",
-      "args": ["/Users/chi/Projects/personality/servers/docker_remote.py"],
+      "command": "/Users/chi/.local/venvs/psn/bin/psn",
+      "args": ["mcp", "docker-remote"],
       "env": {
         "JUNKPILE_HOST": "junkpile",
         "SSH_KEY": "/Users/chi/.ssh/id_ed25519"
       }
     },
     "ollama": {
-      "command": "python3",
-      "args": ["/Users/chi/Projects/personality/servers/ollama.py"],
+      "command": "/Users/chi/.local/venvs/psn/bin/psn",
+      "args": ["mcp", "ollama"],
       "env": {
         "JUNKPILE_HOST": "junkpile",
         "SSH_KEY": "/Users/chi/.ssh/id_ed25519"
       }
     },
     "postgres": {
-      "command": "python3",
-      "args": ["/Users/chi/Projects/personality/servers/postgres.py"],
+      "command": "/Users/chi/.local/venvs/psn/bin/psn",
+      "args": ["mcp", "postgres"],
       "env": {
         "JUNKPILE_HOST": "junkpile",
         "SSH_KEY": "/Users/chi/.ssh/id_ed25519",
@@ -31,27 +31,27 @@
       }
     },
     "sqlite": {
-      "command": "python3",
-      "args": ["/Users/chi/Projects/personality/servers/sqlite.py"],
+      "command": "/Users/chi/.local/venvs/psn/bin/psn",
+      "args": ["mcp", "sqlite"],
       "env": {}
     },
     "memory": {
-      "command": "python3",
-      "args": ["/Users/chi/Projects/personality/servers/memory.py"],
+      "command": "/Users/chi/.local/venvs/psn/bin/psn",
+      "args": ["mcp", "memory"],
       "env": {
         "EMBEDDING_MODEL": "nomic-embed-text"
       }
     },
     "indexer": {
-      "command": "python3",
-      "args": ["/Users/chi/Projects/personality/servers/indexer.py"],
+      "command": "/Users/chi/.local/venvs/psn/bin/psn",
+      "args": ["mcp", "indexer"],
       "env": {
         "EMBEDDING_MODEL": "nomic-embed-text"
       }
     },
     "tts": {
-      "command": "python3",
-      "args": ["/Users/chi/Projects/personality/servers/tts.py"],
+      "command": "/Users/chi/.local/venvs/psn/bin/psn",
+      "args": ["mcp", "tts"],
       "env": {}
     }
   }

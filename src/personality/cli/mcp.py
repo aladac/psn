@@ -1,6 +1,8 @@
 """MCP CLI commands."""
 
 import asyncio
+import importlib.util
+from pathlib import Path
 
 import typer
 from rich.console import Console
@@ -13,6 +15,19 @@ app = typer.Typer(
 )
 console = Console()
 
+# Server registry - maps names to their module paths
+SERVERS_DIR = Path(__file__).parent.parent.parent.parent / "servers"
+AVAILABLE_SERVERS = {
+    "tts": SERVERS_DIR / "tts.py",
+    "ollama": SERVERS_DIR / "ollama.py",
+    "postgres": SERVERS_DIR / "postgres.py",
+    "sqlite": SERVERS_DIR / "sqlite.py",
+    "memory": SERVERS_DIR / "memory.py",
+    "indexer": SERVERS_DIR / "indexer.py",
+    "docker-local": SERVERS_DIR / "docker_local.py",
+    "docker-remote": SERVERS_DIR / "docker_remote.py",
+}
+
 
 @app.callback(invoke_without_command=True)
 def mcp_main(ctx: typer.Context) -> None:
@@ -24,10 +39,75 @@ def mcp_main(ctx: typer.Context) -> None:
 
 @app.command("serve")
 def serve() -> None:
-    """Run the MCP server (stdio transport)."""
+    """Run the main persona MCP server (stdio transport)."""
     from personality.mcp import run_server
 
     asyncio.run(run_server())
+
+
+def _run_server_module(server_path: Path) -> None:
+    """Load and run an MCP server module."""
+    spec = importlib.util.spec_from_file_location("server_module", server_path)
+    if spec is None or spec.loader is None:
+        console.print(f"[red]Error:[/red] Cannot load server from {server_path}")
+        raise typer.Exit(1)
+
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    if hasattr(module, "main"):
+        asyncio.run(module.main())
+    else:
+        console.print(f"[red]Error:[/red] Server module has no main() function")
+        raise typer.Exit(1)
+
+
+@app.command("tts")
+def run_tts() -> None:
+    """Run the TTS MCP server."""
+    _run_server_module(AVAILABLE_SERVERS["tts"])
+
+
+@app.command("ollama")
+def run_ollama() -> None:
+    """Run the Ollama MCP server."""
+    _run_server_module(AVAILABLE_SERVERS["ollama"])
+
+
+@app.command("postgres")
+def run_postgres() -> None:
+    """Run the PostgreSQL MCP server."""
+    _run_server_module(AVAILABLE_SERVERS["postgres"])
+
+
+@app.command("sqlite")
+def run_sqlite() -> None:
+    """Run the SQLite MCP server."""
+    _run_server_module(AVAILABLE_SERVERS["sqlite"])
+
+
+@app.command("memory")
+def run_memory() -> None:
+    """Run the Memory MCP server."""
+    _run_server_module(AVAILABLE_SERVERS["memory"])
+
+
+@app.command("indexer")
+def run_indexer() -> None:
+    """Run the Indexer MCP server."""
+    _run_server_module(AVAILABLE_SERVERS["indexer"])
+
+
+@app.command("docker-local")
+def run_docker_local() -> None:
+    """Run the Docker Local MCP server."""
+    _run_server_module(AVAILABLE_SERVERS["docker-local"])
+
+
+@app.command("docker-remote")
+def run_docker_remote() -> None:
+    """Run the Docker Remote MCP server."""
+    _run_server_module(AVAILABLE_SERVERS["docker-remote"])
 
 
 @app.command("resources")
