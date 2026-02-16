@@ -4,28 +4,28 @@
   },
   "mcpServers": {
     "docker-local": {
-      "command": "psn",
-      "args": ["mcp", "docker-local"]
+      "command": "uv",
+      "args": ["run", "psn", "mcp", "docker-local"]
     },
     "docker-remote": {
-      "command": "psn",
-      "args": ["mcp", "docker-remote"],
+      "command": "uv",
+      "args": ["run", "psn", "mcp", "docker-remote"],
       "env": {
         "JUNKPILE_HOST": "junkpile",
         "SSH_KEY": "/Users/chi/.ssh/id_ed25519"
       }
     },
     "ollama": {
-      "command": "psn",
-      "args": ["mcp", "ollama"],
+      "command": "uv",
+      "args": ["run", "psn", "mcp", "ollama"],
       "env": {
         "JUNKPILE_HOST": "junkpile",
         "SSH_KEY": "/Users/chi/.ssh/id_ed25519"
       }
     },
     "postgres": {
-      "command": "psn",
-      "args": ["mcp", "postgres"],
+      "command": "uv",
+      "args": ["run", "psn", "mcp", "postgres"],
       "env": {
         "JUNKPILE_HOST": "junkpile",
         "SSH_KEY": "/Users/chi/.ssh/id_ed25519",
@@ -33,26 +33,26 @@
       }
     },
     "sqlite": {
-      "command": "psn",
-      "args": ["mcp", "sqlite"]
+      "command": "uv",
+      "args": ["run", "psn", "mcp", "sqlite"]
     },
     "memory": {
-      "command": "psn",
-      "args": ["mcp", "memory"],
+      "command": "uv",
+      "args": ["run", "psn", "mcp", "memory"],
       "env": {
         "EMBEDDING_MODEL": "nomic-embed-text"
       }
     },
     "indexer": {
-      "command": "psn",
-      "args": ["mcp", "indexer"],
+      "command": "uv",
+      "args": ["run", "psn", "mcp", "indexer"],
       "env": {
         "EMBEDDING_MODEL": "nomic-embed-text"
       }
     },
     "tts": {
-      "command": "psn",
-      "args": ["mcp", "tts"]
+      "command": "uv",
+      "args": ["run", "psn", "mcp", "tts"]
     }
   }
 }
