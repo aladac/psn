@@ -16,7 +16,7 @@
   ],
   "mcpServers": {
     "psn": {
-      "command": "/Users/chi/.asdf/installs/python/3.12.3/bin/psn",
+      "command": "/Users/chi/.local/venvs/psn/bin/psn",
       "args": ["mcp", "serve"],
       "description": "Persona MCP server - identity, memories, knowledge, user, host, and project resources"
     }
