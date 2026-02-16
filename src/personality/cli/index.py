@@ -2,10 +2,12 @@
 
 import json
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 import typer
 from rich.console import Console
+from rich.table import Table
 
 from personality.analyzer import analyze_file, generate_symbol_id
 
@@ -381,3 +383,250 @@ def show_callers(
 
     except Exception as e:
         console.print(f"[red]Error: {e}[/red]")
+
+
+@app.command("diff")
+def show_diff(
+    path: str = typer.Argument(".", help="Directory to check"),
+    project: str = typer.Option(None, "--project", "-p", help="Project name"),
+    index_type: str = typer.Option("all", "--type", "-t", help="Type: code, docs, all"),
+) -> None:
+    """Show files changed since last index."""
+    try:
+        indexer = get_indexer()
+        project_name = project or Path(path).resolve().name
+        base_path = Path(path).resolve()
+
+        # Get indexed files with timestamps
+        indexed_code = {}
+        indexed_docs = {}
+
+        if index_type in ("code", "all"):
+            sql = f"SELECT path, indexed_at FROM code_index WHERE project = '{project_name}'"
+            result = indexer.run_psql(sql)
+            if result.get("success") and result.get("stdout"):
+                for line in result["stdout"].strip().split("\n"):
+                    if line and "|" in line:
+                        parts = line.split("|")
+                        indexed_code[parts[0]] = parts[1] if len(parts) > 1 else None
+
+        if index_type in ("docs", "all"):
+            sql = f"SELECT path, indexed_at FROM doc_index WHERE project = '{project_name}'"
+            result = indexer.run_psql(sql)
+            if result.get("success") and result.get("stdout"):
+                for line in result["stdout"].strip().split("\n"):
+                    if line and "|" in line:
+                        parts = line.split("|")
+                        indexed_docs[parts[0]] = parts[1] if len(parts) > 1 else None
+
+        # Scan filesystem
+        new_files = []
+        modified_files = []
+        deleted_files = []
+
+        extensions = set()
+        if index_type in ("code", "all"):
+            extensions.update(indexer.CODE_EXTENSIONS)
+        if index_type in ("docs", "all"):
+            extensions.update(indexer.DOC_EXTENSIONS)
+
+        current_files = set()
+        for file_path in base_path.rglob("*"):
+            if not file_path.is_file():
+                continue
+            if file_path.suffix.lower() not in extensions:
+                continue
+            # Skip hidden/vendor directories
+            if any(p.startswith(".") or p in ("node_modules", "vendor", "__pycache__", ".git") for p in file_path.parts):
+                continue
+
+            str_path = str(file_path)
+            current_files.add(str_path)
+            mtime = datetime.fromtimestamp(file_path.stat().st_mtime, tz=timezone.utc)
+
+            # Check if in index
+            indexed = indexed_code if file_path.suffix.lower() in indexer.CODE_EXTENSIONS else indexed_docs
+
+            if str_path not in indexed:
+                new_files.append(str_path)
+            else:
+                # Compare timestamps
+                indexed_at_str = indexed[str_path]
+                if indexed_at_str:
+                    try:
+                        # Parse PostgreSQL timestamp
+                        indexed_at = datetime.fromisoformat(indexed_at_str.replace(" ", "T").split(".")[0])
+                        indexed_at = indexed_at.replace(tzinfo=timezone.utc)
+                        if mtime > indexed_at:
+                            modified_files.append(str_path)
+                    except (ValueError, TypeError):
+                        modified_files.append(str_path)
+
+        # Find deleted files
+        all_indexed = set(indexed_code.keys()) | set(indexed_docs.keys())
+        for indexed_path in all_indexed:
+            if indexed_path.startswith(str(base_path)) and indexed_path not in current_files:
+                deleted_files.append(indexed_path)
+
+        # Display results
+        table = Table(title=f"Index Diff: {project_name}")
+        table.add_column("Status", style="bold")
+        table.add_column("Count", justify="right")
+        table.add_column("Files")
+
+        if new_files:
+            table.add_row("[green]New[/green]", str(len(new_files)), "\n".join(new_files[:5]) + ("..." if len(new_files) > 5 else ""))
+        if modified_files:
+            table.add_row("[yellow]Modified[/yellow]", str(len(modified_files)), "\n".join(modified_files[:5]) + ("..." if len(modified_files) > 5 else ""))
+        if deleted_files:
+            table.add_row("[red]Deleted[/red]", str(len(deleted_files)), "\n".join(deleted_files[:5]) + ("..." if len(deleted_files) > 5 else ""))
+
+        if not new_files and not modified_files and not deleted_files:
+            console.print("[green]✓[/green] Index is up to date")
+        else:
+            console.print(table)
+            total = len(new_files) + len(modified_files) + len(deleted_files)
+            console.print(f"\n[bold]{total}[/bold] files need re-indexing")
+
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+
+@app.command("sync")
+def sync_index(
+    path: str = typer.Argument(".", help="Directory to sync"),
+    project: str = typer.Option(None, "--project", "-p", help="Project name"),
+    dry_run: bool = typer.Option(False, "--dry-run", "-n", help="Show what would be indexed"),
+) -> None:
+    """Re-index all changed files since last index."""
+    try:
+        indexer = get_indexer()
+        ensure_symbols_table(indexer)
+        project_name = project or Path(path).resolve().name
+        base_path = Path(path).resolve()
+
+        # Get indexed files with timestamps
+        indexed = {}
+        for table in ("code_index", "doc_index"):
+            sql = f"SELECT path, indexed_at FROM {table} WHERE project = '{project_name}'"
+            result = indexer.run_psql(sql)
+            if result.get("success") and result.get("stdout"):
+                for line in result["stdout"].strip().split("\n"):
+                    if line and "|" in line:
+                        parts = line.split("|")
+                        indexed[parts[0]] = parts[1] if len(parts) > 1 else None
+
+        # Find files to index
+        to_index = []
+        extensions = indexer.CODE_EXTENSIONS | indexer.DOC_EXTENSIONS
+
+        for file_path in base_path.rglob("*"):
+            if not file_path.is_file():
+                continue
+            if file_path.suffix.lower() not in extensions:
+                continue
+            if any(p.startswith(".") or p in ("node_modules", "vendor", "__pycache__", ".git") for p in file_path.parts):
+                continue
+
+            str_path = str(file_path)
+            mtime = datetime.fromtimestamp(file_path.stat().st_mtime, tz=timezone.utc)
+
+            if str_path not in indexed:
+                to_index.append(file_path)
+            else:
+                indexed_at_str = indexed[str_path]
+                if indexed_at_str:
+                    try:
+                        indexed_at = datetime.fromisoformat(indexed_at_str.replace(" ", "T").split(".")[0])
+                        indexed_at = indexed_at.replace(tzinfo=timezone.utc)
+                        if mtime > indexed_at:
+                            to_index.append(file_path)
+                    except (ValueError, TypeError):
+                        to_index.append(file_path)
+
+        if not to_index:
+            console.print("[green]✓[/green] Index is up to date")
+            return
+
+        if dry_run:
+            console.print(f"[bold]Would index {len(to_index)} files:[/bold]")
+            for f in to_index[:20]:
+                console.print(f"  {f}")
+            if len(to_index) > 20:
+                console.print(f"  ... and {len(to_index) - 20} more")
+            return
+
+        # Index files
+        console.print(f"[bold]Indexing {len(to_index)} files...[/bold]")
+        indexed_count = 0
+        error_count = 0
+
+        for file_path in to_index:
+            try:
+                ext = file_path.suffix.lower()
+                content = file_path.read_text(errors="ignore")
+                str_path = str(file_path)
+                file_id = f"{project_name}:{str_path}"
+
+                embedding = indexer.get_embedding(content)
+                if not embedding:
+                    error_count += 1
+                    continue
+
+                vec_str = "[" + ",".join(map(str, embedding)) + "]"
+
+                if ext in indexer.CODE_EXTENSIONS:
+                    sql = f"""
+                        INSERT INTO code_index (id, path, content, embedding, language, project)
+                        VALUES ('{file_id}', '{str_path}', '{content[:10000].replace("'", "''")}', '{vec_str}', '{ext[1:]}', '{project_name}')
+                        ON CONFLICT (id) DO UPDATE SET
+                            content = EXCLUDED.content, embedding = EXCLUDED.embedding, indexed_at = NOW()
+                    """
+                    indexer.run_psql(sql)
+
+                    # Analyze
+                    result = analyze_file(file_path)
+                    if result and not result.errors:
+                        indexer.run_psql(f"DELETE FROM symbols WHERE path = '{str_path}'")
+                        indexer.run_psql(f"DELETE FROM imports WHERE source_path = '{str_path}'")
+                        indexer.run_psql(f"DELETE FROM calls WHERE source_path = '{str_path}'")
+
+                        for sym in result.symbols:
+                            sym_id = generate_symbol_id(str_path, sym.name, sym.kind)
+                            docstring_escaped = (sym.docstring or "").replace("'", "''")[:2000]
+                            sql = f"""
+                                INSERT INTO symbols (id, path, name, kind, signature, start_line, end_line, docstring, parent, project)
+                                VALUES ('{sym_id}', '{str_path}', '{sym.name}', '{sym.kind}',
+                                        '{sym.signature.replace("'", "''")}', {sym.start_line}, {sym.end_line},
+                                        '{docstring_escaped}', '{sym.parent or ""}', '{project_name}')
+                                ON CONFLICT (id) DO UPDATE SET signature = EXCLUDED.signature, indexed_at = NOW()
+                            """
+                            indexer.run_psql(sql)
+
+                        for imp in result.imports:
+                            indexer.run_psql(f"INSERT INTO imports (source_path, imported, project) VALUES ('{str_path}', '{imp}', '{project_name}')")
+
+                        for call in result.calls:
+                            indexer.run_psql(f"INSERT INTO calls (source_path, callee, project) VALUES ('{str_path}', '{call}', '{project_name}')")
+                else:
+                    sql = f"""
+                        INSERT INTO doc_index (id, path, content, embedding, project)
+                        VALUES ('{file_id}', '{str_path}', '{content[:10000].replace("'", "''")}', '{vec_str}', '{project_name}')
+                        ON CONFLICT (id) DO UPDATE SET
+                            content = EXCLUDED.content, embedding = EXCLUDED.embedding, indexed_at = NOW()
+                    """
+                    indexer.run_psql(sql)
+
+                indexed_count += 1
+                console.print(f"[green]✓[/green] {file_path.name}")
+
+            except Exception as e:
+                console.print(f"[red]✗[/red] {file_path.name}: {e}")
+                error_count += 1
+
+        console.print(f"\n[bold]Done:[/bold] {indexed_count} indexed, {error_count} errors")
+
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
