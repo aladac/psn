@@ -1,61 +1,108 @@
-# Personality Plugin
+# psn
 
-Infrastructure layer for Claude Code providing persistent memory, semantic search, and local service integration.
-
-## Features
-
-| Category | Components |
-|----------|------------|
-| **Docker** | Local (ARM/fuji) and remote (AMD/junkpile) container management |
-| **Ollama** | Embeddings and inference via junkpile |
-| **PostgreSQL** | Vector storage with pgvector on junkpile |
-| **SQLite** | Local vector storage with sqlite-vec |
-| **Memory** | Persistent memory via embeddings |
-| **Indexer** | Code and document semantic search |
-| **TTS** | Text-to-speech via piper-tts |
-
-## Architecture
-
-```
-fuji (local/ARM)          junkpile (remote/AMD)
-├── Docker local          ├── Docker remote
-├── SQLite                ├── Ollama
-├── TTS (piper)           ├── PostgreSQL + pgvector
-└── Indexer client        └── Memory storage
-```
+Persona system for Claude Code — cartridges, MCP server, memory, and TTS.
 
 ## Installation
 
-### Prerequisites
+```bash
+pip install psn
+```
 
-**Local (fuji)**:
-- Python 3.11+
-- Docker
-- piper-tts (`brew install piper`)
-- SSH access to junkpile
-
-**Remote (junkpile)**:
-- Docker
-- Ollama with nomic-embed-text
-- PostgreSQL with pgvector extension
-
-### Setup
+## Quick Start
 
 ```bash
-# Install Python dependencies
-cd /Users/chi/Projects/personality
-pip install -e .
+# Create a persona cartridge from training data
+psn cart create bt7274
 
-# Ensure SSH access
-ssh junkpile "echo ok"
+# Switch to the persona
+psn cart switch bt7274
 
-# Pull embedding model on junkpile
-ssh junkpile "ollama pull nomic-embed-text"
+# List MCP resources
+psn mcp resources
 
-# Create PostgreSQL database
-ssh junkpile "createdb personality"
-ssh junkpile "psql personality -c 'CREATE EXTENSION vector'"
+# Read persona identity
+psn mcp read persona://current/identity
 ```
+
+## CLI Commands
+
+| Command | Description |
+|---------|-------------|
+| `psn cart list` | List installed cartridges |
+| `psn cart create <name>` | Create cartridge from training |
+| `psn cart switch <name>` | Switch active persona |
+| `psn cart show [name]` | Show cartridge details |
+| `psn persona list` | List training files |
+| `psn persona show <name>` | Show persona training data |
+| `psn tts speak <text>` | Speak text with persona voice |
+| `psn tts stop` | Stop current TTS playback |
+| `psn tts voices` | List available voices |
+| `psn mcp serve` | Run MCP server (stdio) |
+| `psn mcp resources` | List MCP resources |
+| `psn mcp read <uri>` | Read a resource |
+| `psn mcp prompts` | List MCP prompts |
+| `psn mcp prompt <name> [args]` | Execute a prompt |
+| `psn memory list` | List stored memories |
+| `psn knowledge add <s> <p> <o>` | Add knowledge triple |
+| `psn knowledge query` | Query knowledge graph |
+| `psn decision record <title>` | Record a decision |
+
+## MCP Resources
+
+| URI | Description |
+|-----|-------------|
+| `persona://current/memories` | Active persona's memories |
+| `persona://current/identity` | Identity (name, type, tagline) |
+| `persona://current/cart` | Full cartridge details |
+| `persona://current/project` | Current project info |
+| `persona://user` | User info (uid, groups, name) |
+| `persona://host` | Host info (uname, uptime) |
+| `knowledge://triples` | Knowledge graph triples |
+
+## MCP Prompts
+
+| Prompt | Arguments | Description |
+|--------|-----------|-------------|
+| `persona-greeting` | `user_name?` | In-character greeting |
+| `in-character` | `question*` | Respond as persona |
+| `remember` | `subject*`, `content*` | Store a memory |
+| `knowledge-query` | `query*` | Query knowledge graph |
+
+## Cartridge System
+
+Personas are packaged as `.pcart` files (ZIP archives):
+
+```
+persona.pcart
+├── persona.yml      # Memories and traits
+├── preferences.yml  # Identity, TTS settings
+└── manifest.yml     # Version, metadata
+```
+
+### Training Files
+
+Training data lives in `training/*.yml`:
+
+```yaml
+name: BT-7274
+type: Vanguard-class Titan
+tagline: "Trust me."
+
+memories:
+  - subject: self.identity.name
+    content: You are BT-7274, a Vanguard-class Titan.
+  - subject: self.trait.loyalty
+    content: You are fiercely loyal to your Pilot.
+```
+
+## Claude Code Plugin
+
+As a Claude Code plugin, psn provides:
+
+- **SessionStart hook**: Injects persona context
+- **Stop hook**: Cancels TTS on interrupt
+- **PreCompact hook**: Saves memory before compaction
+- **MCP server**: Resources and prompts
 
 ### Enable Plugin
 
@@ -63,104 +110,40 @@ Add to `~/.claude/settings.json`:
 
 ```json
 {
-  "plugins": ["/Users/chi/Projects/personality"]
+  "plugins": ["/path/to/psn"]
 }
 ```
 
-## Commands
+## Features
 
-| Command | Description |
+| Feature | Description |
 |---------|-------------|
-| `/session:save [name]` | Save current session state |
-| `/session:restore <name>` | Restore a saved session |
-| `/memory:store <subject> <content>` | Store in persistent memory |
-| `/memory:recall <query>` | Recall by semantic search |
-| `/memory:search [subject]` | Search or list memories |
-| `/index:code [path]` | Index codebase for search |
-| `/index:docs [path]` | Index documentation |
-| `/index:status` | Show index statistics |
-
-## MCP Tools
-
-### docker-local / docker-remote
-- `containers` - List containers
-- `images` - List images
-- `run` - Run container
-- `stop` - Stop container
-- `logs` - Get logs
-- `exec` - Execute command
-
-### ollama
-- `embed` - Generate embeddings
-- `generate` - Generate text
-- `models` - List models
-- `pull` - Download model
-
-### postgres
-- `query` - SELECT queries
-- `execute` - Modifying statements
-- `vector_search` - pgvector similarity search
-- `schema` - Schema info
-
-### sqlite
-- `query` - SELECT queries
-- `execute` - Modifying statements
-- `vector_search` - sqlite-vec similarity search
-- `tables` - List tables
-
-### memory
-- `store` - Store with embedding
-- `recall` - Semantic recall
-- `search` - Subject search
-- `forget` - Delete memory
-- `list` - List subjects
-
-### indexer
-- `index_code` - Index source files
-- `index_docs` - Index documentation
-- `search` - Semantic search
-- `status` - Index statistics
-- `clear` - Clear index
-
-### tts
-- `speak` - Text to speech
-- `voices` - List voices
-- `set_voice` - Change voice
-
-## Skills
-
-- **Memory Patterns**: Guidance for effective memory usage
-- **Code Analysis**: Semantic code search patterns
-
-## Agents
-
-- **memory-curator**: Organize and clean up memories
-- **code-analyzer**: Deep codebase analysis
-
-## Hooks
-
-All 9 Claude Code hooks have Python stubs ready for customization:
-- PreToolUse, PostToolUse
-- Stop, SubagentStop
-- SessionStart, SessionEnd
-- UserPromptSubmit
-- PreCompact
-- Notification
+| **Cartridges** | Portable persona packages |
+| **Persona Builder** | Generates LLM instructions from memories |
+| **TTS** | piper-tts with per-persona voices |
+| **Knowledge Graph** | Subject-predicate-object triples |
+| **Decision Tracking** | ADR-style decision records |
+| **Memory Management** | Extraction, consolidation, pruning |
+| **MCP Server** | Resources and prompts for Claude Code |
 
 ## Development
 
 ```bash
-# Run tests
+# Clone
+git clone https://github.com/aladac/psn
+cd psn
+
+# Install editable
+pip install -e .
+
+# Lint
+ruff check src/
+ruff format src/
+
+# Test
 pytest
-
-# Type check
-mypy servers/
-
-# Format
-ruff format .
-ruff check .
 ```
 
 ## License
 
-Private - chi@tengu.host
+MIT
