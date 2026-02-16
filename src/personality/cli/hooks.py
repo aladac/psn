@@ -1,10 +1,15 @@
 """Hooks CLI commands."""
 
+from pathlib import Path
+
 import typer
 from rich.console import Console
 
 app = typer.Typer(invoke_without_command=True)
 console = Console()
+
+# Prompts directory (relative to project root)
+PROMPTS_DIR = Path(__file__).parent.parent.parent.parent / "prompts"
 
 
 @app.callback(invoke_without_command=True)
@@ -66,8 +71,10 @@ app.add_typer(session_start_app, name="session-start")
 
 @session_start_app.callback(invoke_without_command=True)
 def session_start() -> None:
-    """Hook called when session starts."""
-    pass
+    """Hook called when session starts. Outputs intro prompt."""
+    intro_file = PROMPTS_DIR / "intro.md"
+    if intro_file.exists():
+        print(intro_file.read_text())
 
 
 # Session-end hook
