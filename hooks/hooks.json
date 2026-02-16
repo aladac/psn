@@ -21,6 +21,16 @@
             "timeout": 5000
           }
         ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "psn index hook",
+            "timeout": 30000
+          }
+        ]
       }
     ],
     "Stop": [
