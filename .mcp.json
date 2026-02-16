@@ -1,12 +1,12 @@
 {
   "mcpServers": {
     "docker-local": {
-      "command": "python",
+      "command": "python3",
       "args": ["${CLAUDE_PLUGIN_ROOT}/servers/docker_local.py"],
       "env": {}
     },
     "docker-remote": {
-      "command": "python",
+      "command": "python3",
       "args": ["${CLAUDE_PLUGIN_ROOT}/servers/docker_remote.py"],
       "env": {
         "JUNKPILE_HOST": "junkpile",
@@ -14,7 +14,7 @@
       }
     },
     "ollama": {
-      "command": "python",
+      "command": "python3",
       "args": ["${CLAUDE_PLUGIN_ROOT}/servers/ollama.py"],
       "env": {
         "JUNKPILE_HOST": "junkpile",
@@ -22,7 +22,7 @@
       }
     },
     "postgres": {
-      "command": "python",
+      "command": "python3",
       "args": ["${CLAUDE_PLUGIN_ROOT}/servers/postgres.py"],
       "env": {
         "JUNKPILE_HOST": "junkpile",
@@ -31,26 +31,26 @@
       }
     },
     "sqlite": {
-      "command": "python",
+      "command": "python3",
       "args": ["${CLAUDE_PLUGIN_ROOT}/servers/sqlite.py"],
       "env": {}
     },
     "memory": {
-      "command": "python",
+      "command": "python3",
       "args": ["${CLAUDE_PLUGIN_ROOT}/servers/memory.py"],
       "env": {
         "EMBEDDING_MODEL": "nomic-embed-text"
       }
     },
     "indexer": {
-      "command": "python",
+      "command": "python3",
       "args": ["${CLAUDE_PLUGIN_ROOT}/servers/indexer.py"],
       "env": {
         "EMBEDDING_MODEL": "nomic-embed-text"
       }
     },
     "tts": {
-      "command": "python",
+      "command": "python3",
       "args": ["${CLAUDE_PLUGIN_ROOT}/servers/tts.py"],
       "env": {}
     }
