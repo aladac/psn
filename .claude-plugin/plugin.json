@@ -15,5 +15,6 @@
     "postgres",
     "sqlite",
     "tts"
-  ]
+  ],
+  "hooks": "./hooks/hooks.json"
 }
