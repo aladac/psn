@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """TTS MCP Server.
 
-Provides text-to-speech capabilities using piper-tts.
+Provides text-to-speech capabilities using piper-tts Python library.
 """
+import io
 import json
 import logging
-import os
 import subprocess
 import tempfile
+import wave
 from pathlib import Path
 from typing import Any
 
@@ -21,17 +22,34 @@ logger = logging.getLogger(__name__)
 server = Server("tts")
 
 # Default voice model
-DEFAULT_VOICE = os.environ.get("PIPER_VOICE", "en_US-lessac-medium")
+DEFAULT_VOICE = "en_US-lessac-medium"
 PIPER_DATA_DIR = Path.home() / ".local" / "share" / "piper-tts"
 
+# Lazy-loaded piper components
+_piper_voice = None
 
-def ensure_piper() -> bool:
-    """Check if piper is installed."""
+
+def get_piper_voice(voice_name: str | None = None):
+    """Get or create piper voice instance."""
+    global _piper_voice
+
+    voice = voice_name or DEFAULT_VOICE
+    voices_dir = PIPER_DATA_DIR / "voices"
+    model_path = voices_dir / f"{voice}.onnx"
+    config_path = voices_dir / f"{voice}.onnx.json"
+
+    if not model_path.exists():
+        return None, f"Voice model not found: {model_path}"
+
     try:
-        result = subprocess.run(["piper", "--version"], capture_output=True, text=True)
-        return result.returncode == 0
-    except FileNotFoundError:
-        return False
+        from piper import PiperVoice
+
+        _piper_voice = PiperVoice.load(str(model_path), str(config_path))
+        return _piper_voice, None
+    except ImportError:
+        return None, "piper-tts not installed. Run: pip install piper-tts"
+    except Exception as e:
+        return None, str(e)
 
 
 def list_voices() -> list[dict[str, str]]:
@@ -41,7 +59,7 @@ def list_voices() -> list[dict[str, str]]:
         return []
 
     voices = []
-    for onnx_file in voices_dir.rglob("*.onnx"):
+    for onnx_file in voices_dir.glob("*.onnx"):
         voice_name = onnx_file.stem
         voices.append({"name": voice_name, "path": str(onnx_file)})
 
@@ -50,52 +68,39 @@ def list_voices() -> list[dict[str, str]]:
 
 def speak_text(text: str, voice: str | None = None) -> dict[str, Any]:
     """Generate speech from text and play it."""
-    if not ensure_piper():
-        return {"success": False, "error": "piper is not installed"}
-
-    voice_model = voice or DEFAULT_VOICE
-    voices_dir = PIPER_DATA_DIR / "voices"
-
-    # Find voice model file
-    voice_path = None
-    for onnx_file in voices_dir.rglob("*.onnx"):
-        if voice_model in str(onnx_file):
-            voice_path = str(onnx_file)
-            break
-
-    if not voice_path:
-        return {"success": False, "error": f"Voice not found: {voice_model}"}
+    piper_voice, error = get_piper_voice(voice)
+    if error:
+        return {"success": False, "error": error}
 
     try:
-        # Generate speech to temporary file
+        # Generate audio to WAV bytes
+        audio_buffer = io.BytesIO()
+
+        with wave.open(audio_buffer, "wb") as wav_file:
+            wav_file.setnchannels(1)
+            wav_file.setsampwidth(2)  # 16-bit
+            wav_file.setframerate(piper_voice.config.sample_rate)
+
+            for audio_bytes in piper_voice.synthesize_stream_raw(text):
+                wav_file.writeframes(audio_bytes)
+
+        # Write to temp file and play (macOS)
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp_file:
+            tmp_file.write(audio_buffer.getvalue())
             tmp_path = tmp_file.name
 
-        # Run piper
-        piper_cmd = ["piper", "--model", voice_path, "--output_file", tmp_path]
-        result = subprocess.run(
-            piper_cmd,
-            input=text,
-            capture_output=True,
-            text=True,
-            timeout=60,
-        )
-
-        if result.returncode != 0:
-            return {"success": False, "error": result.stderr}
-
-        # Play the audio (macOS)
-        play_cmd = ["afplay", tmp_path]
-        subprocess.run(play_cmd, timeout=120)
+        # Play audio using afplay (macOS)
+        subprocess.run(["afplay", tmp_path], timeout=120, check=True)
 
         # Clean up
-        os.unlink(tmp_path)
+        Path(tmp_path).unlink(missing_ok=True)
 
         return {"success": True, "text": text[:100] + "..." if len(text) > 100 else text}
 
     except subprocess.TimeoutExpired:
-        return {"success": False, "error": "Speech generation timed out"}
+        return {"success": False, "error": "Playback timed out"}
     except Exception as e:
+        logger.exception("TTS error")
         return {"success": False, "error": str(e)}
 
 
@@ -149,11 +154,10 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             "success": True,
             "voices": voices,
             "default": DEFAULT_VOICE,
-            "piper_installed": ensure_piper(),
+            "voices_dir": str(PIPER_DATA_DIR / "voices"),
         }
 
     elif name == "set_voice":
-        # This would persist to a config file in a full implementation
         DEFAULT_VOICE = arguments["voice"]
         result = {"success": True, "voice": DEFAULT_VOICE}
 
