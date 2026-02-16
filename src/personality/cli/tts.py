@@ -7,11 +7,26 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
+from personality.services.cart_registry import CartRegistry
+
 app = typer.Typer(invoke_without_command=True)
 console = Console()
 
 PIPER_DATA_DIR = Path.home() / ".local" / "share" / "piper-tts"
 VOICES_DIR = PIPER_DATA_DIR / "voices"
+DEFAULT_VOICE = "en_US-lessac-medium"
+
+
+def get_active_voice() -> str:
+    """Get the active persona's voice or default."""
+    try:
+        registry = CartRegistry()
+        cart = registry.get_active()
+        if cart and cart.voice:
+            return cart.voice
+    except Exception:
+        pass
+    return DEFAULT_VOICE
 
 
 @app.callback(invoke_without_command=True)
@@ -25,9 +40,12 @@ def tts_main(ctx: typer.Context) -> None:
 @app.command("speak")
 def speak(
     text: str = typer.Argument(..., help="Text to speak"),
-    voice: str = typer.Option("en_US-lessac-medium", "--voice", "-v", help="Voice model"),
+    voice: str = typer.Option(None, "--voice", "-v", help="Voice model (default: active persona's voice)"),
 ) -> None:
-    """Speak text aloud."""
+    """Speak text aloud using active persona's voice."""
+    if voice is None:
+        voice = get_active_voice()
+
     try:
         import tempfile
         import wave
@@ -141,7 +159,42 @@ def download_voice(
 
 @app.command("test")
 def test_voice(
-    voice: str = typer.Option("en_US-lessac-medium", "--voice", "-v", help="Voice to test"),
+    voice: str = typer.Option(None, "--voice", "-v", help="Voice to test (default: active persona's voice)"),
 ) -> None:
     """Test a voice with sample text."""
+    if voice is None:
+        voice = get_active_voice()
     speak("Hello! This is a test of the text to speech system.", voice)
+
+
+@app.command("current")
+def show_current() -> None:
+    """Show the current TTS voice from active persona."""
+    try:
+        registry = CartRegistry()
+        cart = registry.get_active()
+
+        if cart:
+            console.print(f"[bold]Active Persona:[/bold] {cart.tag}")
+            if cart.voice:
+                console.print(f"[bold]Voice:[/bold] {cart.voice}")
+                # Check if voice is installed
+                voice_path = VOICES_DIR / f"{cart.voice}.onnx"
+                if voice_path.exists():
+                    console.print("[green]✓[/green] Voice installed")
+                else:
+                    console.print("[yellow]![/yellow] Voice not installed")
+                    console.print(f"  Run: psn tts download {cart.voice}")
+            else:
+                console.print(f"[dim]No voice configured, using default: {DEFAULT_VOICE}[/dim]")
+
+            if cart.preferences.tts.enabled:
+                console.print("[green]TTS Enabled[/green]")
+            else:
+                console.print("[dim]TTS Disabled[/dim]")
+        else:
+            console.print("[yellow]No active persona[/yellow]")
+            console.print(f"[dim]Using default voice: {DEFAULT_VOICE}[/dim]")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1) from None

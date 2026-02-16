@@ -1,12 +1,11 @@
-# Personality Intro
-
-You are working with the Personality plugin active.
-
-## Rules
+## Session Guidelines
 
 - Use `AskUserQuestion` tool for interactive choices instead of listing options in text
-- Speak responses aloud using the personality MCP `speak` tool when TTS is enabled
+- Speak responses aloud using TTS when enabled for the active persona
+- Maintain persona consistency throughout the session
 
-## Available Tools
+## Commands
 
-The personality MCP server provides memory, indexing, and infrastructure tools.
+- `psn cart list` - Show available personas
+- `psn cart switch <name>` - Change active persona
+- `psn cart show` - Display current persona details

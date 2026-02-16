@@ -5,6 +5,9 @@ from pathlib import Path
 import typer
 from rich.console import Console
 
+from personality.services.cart_registry import CartRegistry
+from personality.services.persona_builder import PersonaBuilder
+
 app = typer.Typer(invoke_without_command=True)
 console = Console()
 
@@ -71,10 +74,36 @@ app.add_typer(session_start_app, name="session-start")
 
 @session_start_app.callback(invoke_without_command=True)
 def session_start() -> None:
-    """Hook called when session starts. Outputs intro prompt."""
+    """Hook called when session starts. Outputs intro prompt and persona instructions."""
+    output_parts = []
+
+    # Try to load active persona
+    try:
+        registry = CartRegistry()
+        cart = registry.get_active()
+
+        if cart:
+            # Build persona instructions
+            persona_instructions = PersonaBuilder.build_instructions(cart)
+            if persona_instructions:
+                output_parts.append(persona_instructions)
+                output_parts.append("\n---\n\n")
+
+            # Add persona summary to intro
+            summary = PersonaBuilder.build_summary(cart)
+            output_parts.append(f"**Active Persona:** {summary}\n\n")
+    except Exception:
+        # Silently continue if cart loading fails
+        pass
+
+    # Load base intro
     intro_file = PROMPTS_DIR / "intro.md"
     if intro_file.exists():
-        print(intro_file.read_text())
+        output_parts.append(intro_file.read_text())
+
+    # Output combined prompt
+    if output_parts:
+        print("".join(output_parts))
 
 
 # Session-end hook

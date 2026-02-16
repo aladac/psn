@@ -12,9 +12,9 @@
 - [x] Step 2.4: Add Cart CLI Commands (list, create, switch, show)
 
 ## Phase 3: Persona Builder
-- [ ] Step 3.1: Implement Persona Builder (memories → instruction prompt)
-- [ ] Step 3.2: Wire SessionStart Hook (inject persona at start)
-- [ ] Step 3.3: Add TTS Integration (persona voice switching)
+- [x] Step 3.1: Implement Persona Builder (memories → instruction prompt)
+- [x] Step 3.2: Wire SessionStart Hook (inject persona at start)
+- [x] Step 3.3: Add TTS Integration (persona voice switching)
 
 ## Phase 4: Knowledge Graph
 - [ ] Step 4.1: Add Knowledge Table (subject-predicate-object triples)
@@ -39,4 +39,4 @@
 
 ---
 
-**Total:** 7/22 steps completed
+**Total:** 10/22 steps completed
