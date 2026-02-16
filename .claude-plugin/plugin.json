@@ -16,8 +16,11 @@
   ],
   "mcpServers": {
     "psn": {
-      "command": "/Users/chi/.local/bin/psn",
+      "command": "psn",
       "args": ["mcp", "serve"],
+      "env": {
+        "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+      },
       "description": "Persona MCP server - identity, memories, knowledge, user, host, and project resources"
     }
   }

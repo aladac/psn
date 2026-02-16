@@ -1,12 +1,14 @@
 {
+  "env": {
+    "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+  },
   "mcpServers": {
     "docker-local": {
-      "command": "/Users/chi/.local/venvs/psn/bin/psn",
-      "args": ["mcp", "docker-local"],
-      "env": {}
+      "command": "psn",
+      "args": ["mcp", "docker-local"]
     },
     "docker-remote": {
-      "command": "/Users/chi/.local/venvs/psn/bin/psn",
+      "command": "psn",
       "args": ["mcp", "docker-remote"],
       "env": {
         "JUNKPILE_HOST": "junkpile",
@@ -14,7 +16,7 @@
       }
     },
     "ollama": {
-      "command": "/Users/chi/.local/venvs/psn/bin/psn",
+      "command": "psn",
       "args": ["mcp", "ollama"],
       "env": {
         "JUNKPILE_HOST": "junkpile",
@@ -22,7 +24,7 @@
       }
     },
     "postgres": {
-      "command": "/Users/chi/.local/venvs/psn/bin/psn",
+      "command": "psn",
       "args": ["mcp", "postgres"],
       "env": {
         "JUNKPILE_HOST": "junkpile",
@@ -31,28 +33,26 @@
       }
     },
     "sqlite": {
-      "command": "/Users/chi/.local/venvs/psn/bin/psn",
-      "args": ["mcp", "sqlite"],
-      "env": {}
+      "command": "psn",
+      "args": ["mcp", "sqlite"]
     },
     "memory": {
-      "command": "/Users/chi/.local/venvs/psn/bin/psn",
+      "command": "psn",
       "args": ["mcp", "memory"],
       "env": {
         "EMBEDDING_MODEL": "nomic-embed-text"
       }
     },
     "indexer": {
-      "command": "/Users/chi/.local/venvs/psn/bin/psn",
+      "command": "psn",
       "args": ["mcp", "indexer"],
       "env": {
         "EMBEDDING_MODEL": "nomic-embed-text"
       }
     },
     "tts": {
-      "command": "/Users/chi/.local/venvs/psn/bin/psn",
-      "args": ["mcp", "tts"],
-      "env": {}
+      "command": "psn",
+      "args": ["mcp", "tts"]
     }
   }
 }
