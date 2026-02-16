@@ -51,26 +51,33 @@ def extract_learnings(transcript_path: Path, last_n: int = 10) -> list[dict]:
     for line in recent:
         try:
             entry = json.loads(line)
+            # Extract message text - handle both string and dict formats
+            message = entry.get("message", "")
+            if isinstance(message, dict):
+                # Structured content - extract text field or skip
+                message = message.get("text", "") or message.get("content", "")
+            if not isinstance(message, str):
+                continue
+            text = message.lower()
+
             # Look for patterns indicating learnings
             if entry.get("type") == "user":
-                text = entry.get("message", "").lower()
                 # User corrections or preferences
                 if any(kw in text for kw in ["always", "never", "remember", "don't forget", "preference"]):
                     learnings.append(
                         {
                             "type": "user_preference",
-                            "content": entry.get("message"),
+                            "content": message,
                             "timestamp": datetime.now().isoformat(),
                         }
                     )
             elif entry.get("type") == "assistant":
                 # Check for important discoveries
-                text = entry.get("message", "").lower()
                 if any(kw in text for kw in ["learned", "discovered", "realized", "important"]):
                     learnings.append(
                         {
                             "type": "discovery",
-                            "content": entry.get("message")[:500],  # Truncate
+                            "content": message[:500],  # Truncate
                             "timestamp": datetime.now().isoformat(),
                         }
                     )

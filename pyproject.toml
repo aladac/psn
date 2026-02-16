@@ -5,7 +5,7 @@ description = "Persona system for Claude Code - MCP server, memory, TTS, cartrid
 authors = [{ name = "chi", email = "chi@tengu.host" }]
 readme = "README.md"
 license = { text = "MIT" }
-requires-python = ">=3.11"
+requires-python = ">=3.14"
 keywords = ["claude", "mcp", "persona", "tts", "ai", "llm"]
 classifiers = [
     "Development Status :: 4 - Beta",
