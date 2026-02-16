@@ -1,9 +1,21 @@
 [project]
-name = "personality"
+name = "psn"
 version = "0.1.0"
-description = "Infrastructure layer for Claude Code"
+description = "Persona system for Claude Code - MCP server, memory, TTS, cartridges"
 authors = [{ name = "chi", email = "chi@tengu.host" }]
+readme = "README.md"
+license = { text = "MIT" }
 requires-python = ">=3.11"
+keywords = ["claude", "mcp", "persona", "tts", "ai", "llm"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries",
+]
 dependencies = [
     "mcp>=1.0.0",
     "piper-tts>=1.4.0",
@@ -12,6 +24,11 @@ dependencies = [
     "pydantic>=2.0.0",
     "pyyaml>=6.0.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/aladac/psn"
+Repository = "https://github.com/aladac/psn"
+Issues = "https://github.com/aladac/psn/issues"
 
 [project.scripts]
 psn = "personality.cli:app"
