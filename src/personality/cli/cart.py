@@ -159,6 +159,8 @@ def switch_cart(
     name: str = typer.Argument(..., help="Cart tag to switch to"),
 ) -> None:
     """Switch active cartridge."""
+    from personality.cli.tts import find_voice_path
+
     registry = get_registry()
 
     try:
@@ -167,7 +169,13 @@ def switch_cart(
         if cart.preferences.identity.name:
             console.print(f"  Name: {cart.preferences.identity.name}")
         if cart.voice:
-            console.print(f"  Voice: {cart.voice}")
+            voice_path = find_voice_path(cart.voice)
+            if voice_path:
+                console.print(f"  Voice: {cart.voice} [green]✓[/green]")
+            else:
+                console.print(f"  Voice: {cart.voice} [yellow](not installed)[/yellow]")
+        if cart.preferences.tts.enabled:
+            console.print("  TTS: [green]enabled[/green]")
     except FileNotFoundError:
         console.print(f"[red]Cart not found:[/red] {name}")
         console.print("\nAvailable carts:")

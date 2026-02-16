@@ -12,9 +12,68 @@ from personality.services.cart_registry import CartRegistry
 app = typer.Typer(invoke_without_command=True)
 console = Console()
 
+# Voice directories (local plugin dir + system piper dir)
+LOCAL_VOICES_DIR = Path(__file__).parent.parent.parent.parent / "voices"
 PIPER_DATA_DIR = Path.home() / ".local" / "share" / "piper-tts"
-VOICES_DIR = PIPER_DATA_DIR / "voices"
+SYSTEM_VOICES_DIR = PIPER_DATA_DIR / "voices"
 DEFAULT_VOICE = "en_US-lessac-medium"
+
+# Character voice sources (HuggingFace)
+CHARACTER_VOICES = {
+    "bt7274": {
+        "name": "BT-7274",
+        "source": "local",  # Already in voices/
+        "file": "BT7274",
+    },
+    "glados": {
+        "name": "GLaDOS",
+        "source": "https://huggingface.co/datasets/GLaDOS/glados-tts",
+        "note": "Requires manual download - see doc/tts-voices.md",
+    },
+    "hal9000": {
+        "name": "HAL 9000",
+        "source": "custom",
+        "note": "No public model available yet",
+    },
+    "jarvis": {
+        "name": "JARVIS",
+        "source": "custom",
+        "note": "No public model available yet",
+    },
+}
+
+
+def find_voice_path(voice: str) -> Path | None:
+    """Find a voice model in local or system directories."""
+    # Check local voices first (character voices)
+    local_path = LOCAL_VOICES_DIR / f"{voice}.onnx"
+    if local_path.exists():
+        return local_path
+
+    # Check system piper voices
+    system_path = SYSTEM_VOICES_DIR / f"{voice}.onnx"
+    if system_path.exists():
+        return system_path
+
+    return None
+
+
+def list_all_voices() -> list[tuple[str, Path, str]]:
+    """List all available voices from all directories."""
+    voices: list[tuple[str, Path, str]] = []
+
+    # Local character voices
+    if LOCAL_VOICES_DIR.exists():
+        for voice_path in LOCAL_VOICES_DIR.glob("*.onnx"):
+            voices.append((voice_path.stem, voice_path, "character"))
+
+    # System piper voices
+    if SYSTEM_VOICES_DIR.exists():
+        for voice_path in SYSTEM_VOICES_DIR.glob("*.onnx"):
+            if voice_path.stem not in [v[0] for v in voices]:
+                voices.append((voice_path.stem, voice_path, "piper"))
+
+    return sorted(voices, key=lambda x: x[0].lower())
 
 
 def get_active_voice() -> str:
@@ -52,13 +111,15 @@ def speak(
 
         from piper import PiperVoice
 
-        model_path = VOICES_DIR / f"{voice}.onnx"
-        config_path = VOICES_DIR / f"{voice}.onnx.json"
-
-        if not model_path.exists():
+        model_path = find_voice_path(voice)
+        if model_path is None:
             console.print(f"[red]Voice not found: {voice}[/red]")
-            console.print(f"Available: {', '.join(v.stem for v in VOICES_DIR.glob('*.onnx'))}")
+            available = [v[0] for v in list_all_voices()]
+            if available:
+                console.print(f"Available: {', '.join(available[:5])}")
             raise typer.Exit(1)
+
+        config_path = model_path.with_suffix(".onnx.json")
 
         piper_voice = PiperVoice.load(str(model_path), str(config_path))
 
@@ -82,25 +143,26 @@ def speak(
 @app.command("voices")
 def list_voices() -> None:
     """List available voice models."""
-    if not VOICES_DIR.exists():
-        console.print(f"[yellow]No voices directory: {VOICES_DIR}[/yellow]")
-        return
+    voices = list_all_voices()
 
-    voices = list(VOICES_DIR.glob("*.onnx"))
     if not voices:
         console.print("[dim]No voices installed[/dim]")
+        console.print("\nDownload a voice:")
+        console.print("  psn tts download en_US-lessac-medium")
         return
 
     table = Table(title="Installed Voices")
     table.add_column("Name", style="cyan")
+    table.add_column("Type", style="dim")
     table.add_column("Size", justify="right")
 
-    for voice in sorted(voices):
-        size_mb = voice.stat().st_size / (1024 * 1024)
-        table.add_row(voice.stem, f"{size_mb:.1f} MB")
+    for name, path, voice_type in voices:
+        size_mb = path.stat().st_size / (1024 * 1024)
+        type_display = "[green]character[/green]" if voice_type == "character" else "piper"
+        table.add_row(name, type_display, f"{size_mb:.1f} MB")
 
     console.print(table)
-    console.print(f"\n[dim]Location: {VOICES_DIR}[/dim]")
+    console.print(f"\n[dim]Locations: {LOCAL_VOICES_DIR}, {SYSTEM_VOICES_DIR}[/dim]")
 
 
 @app.command("download")
@@ -108,10 +170,10 @@ def download_voice(
     voice: str = typer.Argument(..., help="Voice name (e.g., en_US-lessac-medium)"),
 ) -> None:
     """Download a piper voice model."""
-    VOICES_DIR.mkdir(parents=True, exist_ok=True)
+    SYSTEM_VOICES_DIR.mkdir(parents=True, exist_ok=True)
 
-    model_path = VOICES_DIR / f"{voice}.onnx"
-    config_path = VOICES_DIR / f"{voice}.onnx.json"
+    model_path = SYSTEM_VOICES_DIR / f"{voice}.onnx"
+    config_path = SYSTEM_VOICES_DIR / f"{voice}.onnx.json"
 
     if model_path.exists():
         console.print(f"[yellow]Voice already exists: {voice}[/yellow]")
@@ -178,10 +240,10 @@ def show_current() -> None:
             console.print(f"[bold]Active Persona:[/bold] {cart.tag}")
             if cart.voice:
                 console.print(f"[bold]Voice:[/bold] {cart.voice}")
-                # Check if voice is installed
-                voice_path = VOICES_DIR / f"{cart.voice}.onnx"
-                if voice_path.exists():
-                    console.print("[green]✓[/green] Voice installed")
+                # Check if voice is installed (in either directory)
+                voice_path = find_voice_path(cart.voice)
+                if voice_path:
+                    console.print(f"[green]✓[/green] Voice installed at {voice_path.parent.name}/")
                 else:
                     console.print("[yellow]![/yellow] Voice not installed")
                     console.print(f"  Run: psn tts download {cart.voice}")
@@ -198,3 +260,29 @@ def show_current() -> None:
     except Exception as e:
         console.print(f"[red]Error: {e}[/red]")
         raise typer.Exit(1) from None
+
+
+@app.command("characters")
+def list_character_voices() -> None:
+    """List available character voices."""
+    table = Table(title="Character Voices")
+    table.add_column("ID", style="cyan")
+    table.add_column("Name")
+    table.add_column("Status")
+    table.add_column("Notes", style="dim")
+
+    for char_id, info in CHARACTER_VOICES.items():
+        if info.get("source") == "local":
+            voice_path = find_voice_path(info.get("file", char_id))
+            status = "[green]installed[/green]" if voice_path else "[yellow]not found[/yellow]"
+        else:
+            status = "[dim]manual[/dim]"
+
+        table.add_row(
+            char_id,
+            info["name"],
+            status,
+            info.get("note", ""),
+        )
+
+    console.print(table)

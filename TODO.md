@@ -33,10 +33,10 @@
 - [x] Step 6.4: Wire PreCompact Hook (consolidate before compression)
 
 ## Phase 7: Voice Models
-- [ ] Step 7.1: Copy Voice Models (BT7274.onnx)
-- [ ] Step 7.2: Add Voice Download Command (HuggingFace character voices)
-- [ ] Step 7.3: Wire Persona Voice Switching (auto-switch on cart change)
+- [x] Step 7.1: Copy Voice Models (BT7274.onnx)
+- [x] Step 7.2: Add Voice Download Command (HuggingFace character voices)
+- [x] Step 7.3: Wire Persona Voice Switching (auto-switch on cart change)
 
 ---
 
-**Total:** 20/22 steps completed
+**Total:** 22/22 steps completed

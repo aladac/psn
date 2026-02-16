@@ -49,6 +49,9 @@ carts/
 # Generated data
 data/
 
+# Voice models (large files)
+voices/*.onnx
+
 # OS
 .DS_Store
 Thumbs.db
