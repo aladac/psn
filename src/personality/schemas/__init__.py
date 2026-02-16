@@ -1,5 +1,10 @@
 """Pydantic schemas for personality plugin."""
 
+from personality.schemas.decision import (
+    Decision,
+    DecisionStatus,
+    DecisionStore,
+)
 from personality.schemas.knowledge import (
     KnowledgeStore,
     KnowledgeTriple,
@@ -33,4 +38,8 @@ __all__ = [
     # Knowledge
     "KnowledgeStore",
     "KnowledgeTriple",
+    # Decision
+    "Decision",
+    "DecisionStatus",
+    "DecisionStore",
 ]

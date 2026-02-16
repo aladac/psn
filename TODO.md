@@ -22,9 +22,9 @@
 - [x] Step 4.3: Add Knowledge CLI (add, query, search, list)
 
 ## Phase 5: Decision Tracking
-- [ ] Step 5.1: Add Decision Table (title, context, rationale, alternatives)
-- [ ] Step 5.2: Implement Decision Service (CRUD)
-- [ ] Step 5.3: Add Decision CLI (record, list, show)
+- [x] Step 5.1: Add Decision Schema (title, context, rationale, alternatives)
+- [x] Step 5.2: Implement Decision Service (CRUD)
+- [x] Step 5.3: Add Decision CLI (record, list, show)
 
 ## Phase 6: Memory Management
 - [ ] Step 6.1: Implement Memory Extractor (extract from transcripts)
@@ -39,4 +39,4 @@
 
 ---
 
-**Total:** 13/22 steps completed
+**Total:** 16/22 steps completed
