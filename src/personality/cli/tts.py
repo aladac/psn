@@ -30,7 +30,6 @@ def speak(
     """Speak text aloud."""
     try:
         from piper import PiperVoice
-        import io
         import wave
         import tempfile
 
@@ -44,17 +43,10 @@ def speak(
 
         piper_voice = PiperVoice.load(str(model_path), str(config_path))
 
-        audio_buffer = io.BytesIO()
-        with wave.open(audio_buffer, "wb") as wav_file:
-            wav_file.setnchannels(1)
-            wav_file.setsampwidth(2)
-            wav_file.setframerate(piper_voice.config.sample_rate)
-            for audio_bytes in piper_voice.synthesize_stream_raw(text):
-                wav_file.writeframes(audio_bytes)
-
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
-            tmp.write(audio_buffer.getvalue())
             tmp_path = tmp.name
+            with wave.open(tmp_path, "wb") as wav_file:
+                piper_voice.synthesize_wav(text, wav_file)
 
         subprocess.run(["afplay", tmp_path], timeout=120, check=True)
         Path(tmp_path).unlink(missing_ok=True)
