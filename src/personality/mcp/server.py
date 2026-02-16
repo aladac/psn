@@ -4,7 +4,7 @@ import asyncio
 
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
-from mcp.types import Resource, TextContent
+from mcp.types import GetPromptResult, Prompt, PromptArgument, Resource, TextContent
 
 # Create the server instance
 server = Server("personality")
@@ -74,6 +74,93 @@ async def list_resources() -> list[Resource]:
     ]
 
 
+@server.list_prompts()
+async def list_prompts() -> list[Prompt]:
+    """List all available prompts."""
+    return [
+        Prompt(
+            name="persona-greeting",
+            description="Generate an in-character greeting from the active persona",
+            arguments=[
+                PromptArgument(
+                    name="user_name",
+                    description="Name to address the user by",
+                    required=False,
+                ),
+            ],
+        ),
+        Prompt(
+            name="in-character",
+            description="Get an in-character response to a question",
+            arguments=[
+                PromptArgument(
+                    name="question",
+                    description="The question to answer in character",
+                    required=True,
+                ),
+            ],
+        ),
+        Prompt(
+            name="remember",
+            description="Store a memory about the user or project",
+            arguments=[
+                PromptArgument(
+                    name="subject",
+                    description="Memory subject (e.g., user.preference.editor)",
+                    required=True,
+                ),
+                PromptArgument(
+                    name="content",
+                    description="What to remember",
+                    required=True,
+                ),
+            ],
+        ),
+        Prompt(
+            name="knowledge-query",
+            description="Query the knowledge graph",
+            arguments=[
+                PromptArgument(
+                    name="query",
+                    description="Natural language query",
+                    required=True,
+                ),
+            ],
+        ),
+    ]
+
+
+@server.get_prompt()
+async def get_prompt(name: str, arguments: dict | None = None) -> GetPromptResult:
+    """Get a prompt by name."""
+    from personality.mcp.prompts.knowledge import knowledge_query
+    from personality.mcp.prompts.memory import remember
+    from personality.mcp.prompts.persona import in_character, persona_greeting
+
+    args = arguments or {}
+
+    if name == "persona-greeting":
+        return await persona_greeting(args.get("user_name"))
+    elif name == "in-character":
+        question = args.get("question", "")
+        if not question:
+            raise ValueError("question argument is required")
+        return await in_character(question)
+    elif name == "remember":
+        subject = args.get("subject", "")
+        content = args.get("content", "")
+        if not subject or not content:
+            raise ValueError("subject and content arguments are required")
+        return await remember(subject, content)
+    elif name == "knowledge-query":
+        query = args.get("query", "")
+        if not query:
+            raise ValueError("query argument is required")
+        return await knowledge_query(query)
+    else:
+        raise ValueError(f"Unknown prompt: {name}")
+
+
 @server.read_resource()
 async def read_resource(uri: str) -> list[TextContent]:
     """Read a resource by URI."""
@@ -110,7 +197,7 @@ async def _get_current_memories() -> dict:
         if not cart:
             return {"memories": [], "count": 0, "message": "No active cart"}
 
-        memories = [{"subject": m.subject, "content": m.content, "source": m.source} for m in cart.persona.memories]
+        memories = [{"subject": m.subject, "content": m.content} for m in cart.persona.memories]
         return {"memories": memories, "count": len(memories), "cart": cart.tag}
     except Exception as e:
         return {"error": str(e)}
