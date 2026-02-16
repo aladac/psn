@@ -27,10 +27,10 @@
 - [x] Step 5.3: Add Decision CLI (record, list, show)
 
 ## Phase 6: Memory Management
-- [ ] Step 6.1: Implement Memory Extractor (extract from transcripts)
-- [ ] Step 6.2: Implement Memory Consolidator (merge related)
-- [ ] Step 6.3: Implement Memory Pruner (archive stale)
-- [ ] Step 6.4: Wire PreCompact Hook (consolidate before compression)
+- [x] Step 6.1: Implement Memory Extractor (extract from transcripts)
+- [x] Step 6.2: Implement Memory Consolidator (merge related)
+- [x] Step 6.3: Implement Memory Pruner (archive stale)
+- [x] Step 6.4: Wire PreCompact Hook (consolidate before compression)
 
 ## Phase 7: Voice Models
 - [ ] Step 7.1: Copy Voice Models (BT7274.onnx)
@@ -39,4 +39,4 @@
 
 ---
 
-**Total:** 16/22 steps completed
+**Total:** 20/22 steps completed

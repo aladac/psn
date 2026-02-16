@@ -7,6 +7,11 @@ from pathlib import Path
 
 import typer
 from rich.console import Console
+from rich.table import Table
+
+from personality.services.memory_consolidator import MemoryConsolidator
+from personality.services.memory_extractor import MemoryExtractor
+from personality.services.memory_pruner import MemoryPruner
 
 app = typer.Typer(invoke_without_command=True)
 console = Console()
@@ -158,3 +163,210 @@ def clear(
         console.print("[green]Memories cleared[/green]")
     else:
         console.print("[dim]No memories to clear[/dim]")
+
+
+@app.command("extract")
+def extract_memories(
+    text: str = typer.Argument(None, help="Text to extract from (or stdin)"),
+    min_confidence: float = typer.Option(0.5, "--min-confidence", "-c", help="Minimum confidence"),
+) -> None:
+    """Extract memories from text."""
+    if text is None:
+        text = sys.stdin.read()
+
+    extractor = MemoryExtractor(min_confidence=min_confidence)
+    memories = extractor.extract_from_text(text)
+
+    if not memories:
+        console.print("[yellow]No memories extracted.[/yellow]")
+        raise typer.Exit(0)
+
+    table = Table(title="Extracted Memories")
+    table.add_column("Subject", style="cyan")
+    table.add_column("Content")
+    table.add_column("Confidence", justify="right")
+
+    for mem in memories:
+        table.add_row(
+            mem.subject,
+            mem.content[:60] + "..." if len(mem.content) > 60 else mem.content,
+            f"{mem.confidence:.2f}",
+        )
+
+    console.print(table)
+
+
+@app.command("consolidate")
+def consolidate_memories(
+    project: str = typer.Option(None, "--project", "-p", help="Project path"),
+    dry_run: bool = typer.Option(False, "--dry-run", "-n", help="Preview without changes"),
+    threshold: float = typer.Option(0.6, "--threshold", "-t", help="Similarity threshold"),
+) -> None:
+    """Consolidate similar memories."""
+    memory_dir = get_memory_dir(project)
+    log_file = memory_dir / "learnings.jsonl"
+
+    if not log_file.exists():
+        console.print("[yellow]No memories to consolidate.[/yellow]")
+        raise typer.Exit(0)
+
+    # Load memories
+    memories = []
+    for line in log_file.read_text().strip().split("\n"):
+        try:
+            memories.append(json.loads(line))
+        except json.JSONDecodeError:
+            continue
+
+    if len(memories) < 2:
+        console.print("[yellow]Not enough memories to consolidate.[/yellow]")
+        raise typer.Exit(0)
+
+    # Consolidate
+    consolidator = MemoryConsolidator(similarity_threshold=threshold)
+    consolidated, result = consolidator.consolidate(memories)
+
+    console.print("[bold]Consolidation Results:[/bold]")
+    console.print(f"  Original: {result.original_count}")
+    console.print(f"  Merged:   {result.merged_count}")
+    console.print(f"  Final:    {result.final_count}")
+    console.print(f"  Reduced:  {result.reduction} ({result.reduction_percent:.1f}%)")
+
+    if dry_run:
+        console.print("\n[dim]Dry run - no changes made[/dim]")
+        return
+
+    if result.reduction > 0:
+        # Write consolidated memories
+        with log_file.open("w") as f:
+            for mem in consolidated:
+                f.write(json.dumps(mem) + "\n")
+        console.print(f"\n[green]Consolidated {result.reduction} memories.[/green]")
+    else:
+        console.print("\n[dim]No consolidation needed.[/dim]")
+
+
+@app.command("prune")
+def prune_memories(
+    project: str = typer.Option(None, "--project", "-p", help="Project path"),
+    dry_run: bool = typer.Option(False, "--dry-run", "-n", help="Preview without changes"),
+    threshold: float = typer.Option(0.3, "--threshold", "-t", help="Prune threshold"),
+    archive: bool = typer.Option(True, "--archive/--no-archive", help="Archive pruned memories"),
+) -> None:
+    """Prune low-value memories."""
+    memory_dir = get_memory_dir(project)
+    log_file = memory_dir / "learnings.jsonl"
+
+    if not log_file.exists():
+        console.print("[yellow]No memories to prune.[/yellow]")
+        raise typer.Exit(0)
+
+    # Load memories
+    memories = []
+    for line in log_file.read_text().strip().split("\n"):
+        try:
+            memories.append(json.loads(line))
+        except json.JSONDecodeError:
+            continue
+
+    if not memories:
+        console.print("[yellow]No memories to prune.[/yellow]")
+        raise typer.Exit(0)
+
+    # Prune
+    pruner = MemoryPruner(prune_threshold=threshold)
+    retained, pruned, result = pruner.prune(memories, archive=archive)
+
+    console.print("[bold]Pruning Results:[/bold]")
+    console.print(f"  Total:    {result.total_count}")
+    console.print(f"  Retained: {result.retained_count}")
+    console.print(f"  Pruned:   {result.pruned_count} ({result.pruned_percent:.1f}%)")
+
+    if pruned and result.pruned_count <= 10:
+        console.print("\n[dim]Pruned memories:[/dim]")
+        for p in result.pruned_memories:
+            console.print(f"  [{p.get('score', 0):.2f}] {p.get('subject', '')}")
+
+    if dry_run:
+        console.print("\n[dim]Dry run - no changes made[/dim]")
+        return
+
+    if result.pruned_count > 0:
+        # Write retained memories
+        with log_file.open("w") as f:
+            for mem in retained:
+                f.write(json.dumps(mem) + "\n")
+
+        # Archive pruned if requested
+        if archive and pruned:
+            archive_file = memory_dir / "archived.jsonl"
+            with archive_file.open("a") as f:
+                for mem in pruned:
+                    mem["archived_at"] = datetime.now().isoformat()
+                    f.write(json.dumps(mem) + "\n")
+            console.print(f"\n[green]Archived {len(pruned)} memories to {archive_file.name}[/green]")
+
+        console.print(f"[green]Pruned {result.pruned_count} memories.[/green]")
+    else:
+        console.print("\n[dim]No pruning needed.[/dim]")
+
+
+@app.command("hook-precompact")
+def hook_precompact() -> None:
+    """PreCompact hook: consolidate and prune memories."""
+    try:
+        data = json.load(sys.stdin)
+        cwd = data.get("cwd")
+
+        memory_dir = get_memory_dir(cwd)
+        log_file = memory_dir / "learnings.jsonl"
+
+        if not log_file.exists():
+            return
+
+        # Load memories
+        memories = []
+        for line in log_file.read_text().strip().split("\n"):
+            try:
+                memories.append(json.loads(line))
+            except json.JSONDecodeError:
+                continue
+
+        if len(memories) < 5:
+            return  # Not enough to consolidate
+
+        # Consolidate
+        consolidator = MemoryConsolidator()
+        consolidated, cons_result = consolidator.consolidate(memories)
+
+        # Prune
+        pruner = MemoryPruner()
+        retained, pruned, prune_result = pruner.prune(consolidated)
+
+        # Write results
+        if cons_result.reduction > 0 or prune_result.pruned_count > 0:
+            with log_file.open("w") as f:
+                for mem in retained:
+                    f.write(json.dumps(mem) + "\n")
+
+            # Archive pruned
+            if pruned:
+                archive_file = memory_dir / "archived.jsonl"
+                with archive_file.open("a") as f:
+                    for mem in pruned:
+                        mem["archived_at"] = datetime.now().isoformat()
+                        f.write(json.dumps(mem) + "\n")
+
+            # Output summary
+            print(
+                json.dumps(
+                    {
+                        "consolidated": cons_result.reduction,
+                        "pruned": prune_result.pruned_count,
+                        "retained": len(retained),
+                    }
+                )
+            )
+
+    except (json.JSONDecodeError, KeyError):
+        pass
