@@ -2,12 +2,12 @@
   "mcpServers": {
     "docker-local": {
       "command": "python3",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/servers/docker_local.py"],
+      "args": ["/Users/chi/Projects/personality/servers/docker_local.py"],
       "env": {}
     },
     "docker-remote": {
       "command": "python3",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/servers/docker_remote.py"],
+      "args": ["/Users/chi/Projects/personality/servers/docker_remote.py"],
       "env": {
         "JUNKPILE_HOST": "junkpile",
         "SSH_KEY": "/Users/chi/.ssh/id_ed25519"
@@ -15,7 +15,7 @@
     },
     "ollama": {
       "command": "python3",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/servers/ollama.py"],
+      "args": ["/Users/chi/Projects/personality/servers/ollama.py"],
       "env": {
         "JUNKPILE_HOST": "junkpile",
         "SSH_KEY": "/Users/chi/.ssh/id_ed25519"
@@ -23,7 +23,7 @@
     },
     "postgres": {
       "command": "python3",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/servers/postgres.py"],
+      "args": ["/Users/chi/Projects/personality/servers/postgres.py"],
       "env": {
         "JUNKPILE_HOST": "junkpile",
         "SSH_KEY": "/Users/chi/.ssh/id_ed25519",
@@ -32,26 +32,26 @@
     },
     "sqlite": {
       "command": "python3",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/servers/sqlite.py"],
+      "args": ["/Users/chi/Projects/personality/servers/sqlite.py"],
       "env": {}
     },
     "memory": {
       "command": "python3",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/servers/memory.py"],
+      "args": ["/Users/chi/Projects/personality/servers/memory.py"],
       "env": {
         "EMBEDDING_MODEL": "nomic-embed-text"
       }
     },
     "indexer": {
       "command": "python3",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/servers/indexer.py"],
+      "args": ["/Users/chi/Projects/personality/servers/indexer.py"],
       "env": {
         "EMBEDDING_MODEL": "nomic-embed-text"
       }
     },
     "tts": {
       "command": "python3",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/servers/tts.py"],
+      "args": ["/Users/chi/Projects/personality/servers/tts.py"],
       "env": {}
     }
   }
