@@ -1,5 +1,7 @@
 """TTS CLI commands."""
 
+import os
+import signal
 import subprocess
 from pathlib import Path
 
@@ -17,6 +19,42 @@ LOCAL_VOICES_DIR = Path(__file__).parent.parent.parent.parent / "voices"
 PIPER_DATA_DIR = Path.home() / ".local" / "share" / "piper-tts"
 SYSTEM_VOICES_DIR = PIPER_DATA_DIR / "voices"
 DEFAULT_VOICE = "en_US-lessac-medium"
+
+# PID file for tracking running TTS process
+DATA_DIR = Path(__file__).parent.parent.parent.parent / "data"
+TTS_PID_FILE = DATA_DIR / "tts.pid"
+TTS_WAV_FILE = DATA_DIR / "tts_current.wav"
+
+
+def stop_current_tts() -> bool:
+    """Stop any currently running TTS process. Returns True if a process was stopped."""
+    if not TTS_PID_FILE.exists():
+        return False
+
+    try:
+        pid = int(TTS_PID_FILE.read_text().strip())
+        # Check if process exists and kill it
+        os.kill(pid, signal.SIGTERM)
+        TTS_PID_FILE.unlink(missing_ok=True)
+        TTS_WAV_FILE.unlink(missing_ok=True)
+        return True
+    except (ValueError, ProcessLookupError, PermissionError):
+        # Process doesn't exist or can't be killed
+        TTS_PID_FILE.unlink(missing_ok=True)
+        return False
+
+
+def save_tts_pid(pid: int) -> None:
+    """Save the TTS process PID for later cancellation."""
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    TTS_PID_FILE.write_text(str(pid))
+
+
+def clear_tts_pid() -> None:
+    """Clear the TTS PID file after playback completes."""
+    TTS_PID_FILE.unlink(missing_ok=True)
+    TTS_WAV_FILE.unlink(missing_ok=True)
+
 
 # Character voice sources (HuggingFace)
 CHARACTER_VOICES = {
@@ -102,11 +140,13 @@ def speak(
     voice: str = typer.Option(None, "--voice", "-v", help="Voice model (default: active persona's voice)"),
 ) -> None:
     """Speak text aloud using active persona's voice."""
+    # Stop any currently playing TTS to prevent overlap
+    stop_current_tts()
+
     if voice is None:
         voice = get_active_voice()
 
     try:
-        import tempfile
         import wave
 
         from piper import PiperVoice
@@ -123,21 +163,36 @@ def speak(
 
         piper_voice = PiperVoice.load(str(model_path), str(config_path))
 
-        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
-            tmp_path = tmp.name
-            with wave.open(tmp_path, "wb") as wav_file:
-                piper_voice.synthesize_wav(text, wav_file)
+        # Use consistent file location for easy cleanup
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
+        with wave.open(str(TTS_WAV_FILE), "wb") as wav_file:
+            piper_voice.synthesize_wav(text, wav_file)
 
-        subprocess.run(["afplay", tmp_path], timeout=120, check=True)
-        Path(tmp_path).unlink(missing_ok=True)
+        # Use Popen to get PID for cancellation support
+        process = subprocess.Popen(["afplay", str(TTS_WAV_FILE)])
+        save_tts_pid(process.pid)
+
+        # Wait for playback to complete
+        process.wait()
+        clear_tts_pid()
 
     except ImportError:
         console.print("[red]piper-tts not installed[/red]")
         console.print("Run: pip install piper-tts")
         raise typer.Exit(1) from None
     except Exception as e:
+        clear_tts_pid()
         console.print(f"[red]Error: {e}[/red]")
         raise typer.Exit(1) from None
+
+
+@app.command("stop")
+def stop() -> None:
+    """Stop currently playing TTS audio."""
+    if stop_current_tts():
+        console.print("[green]TTS stopped[/green]")
+    else:
+        console.print("[dim]No TTS playing[/dim]")
 
 
 @app.command("voices")

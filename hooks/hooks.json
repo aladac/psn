@@ -38,6 +38,11 @@
         "hooks": [
           {
             "type": "command",
+            "command": "psn tts stop",
+            "timeout": 1000
+          },
+          {
+            "type": "command",
             "command": "psn memory save",
             "timeout": 5000
           }
