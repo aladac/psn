@@ -1,4 +1,4 @@
-"""Indexing CLI commands."""
+"""Indexing CLI commands with AST analysis."""
 
 import json
 import sys
@@ -7,16 +7,63 @@ from pathlib import Path
 import typer
 from rich.console import Console
 
+from personality.analyzer import analyze_file, generate_symbol_id
+
 app = typer.Typer(invoke_without_command=True)
 console = Console()
 
-# Import indexer functions (lazy to avoid import errors if deps missing)
+
 def get_indexer():
     """Lazy import indexer module."""
-    import sys
     sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "servers"))
     import indexer
     return indexer
+
+
+def ensure_symbols_table(indexer) -> None:
+    """Ensure the symbols table exists."""
+    sql = """
+    CREATE TABLE IF NOT EXISTS symbols (
+        id TEXT PRIMARY KEY,
+        path TEXT NOT NULL,
+        name TEXT NOT NULL,
+        kind TEXT NOT NULL,
+        signature TEXT,
+        start_line INTEGER,
+        end_line INTEGER,
+        docstring TEXT,
+        parent TEXT,
+        project TEXT,
+        embedding vector(768),
+        indexed_at TIMESTAMP DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS symbols_path_idx ON symbols (path);
+    CREATE INDEX IF NOT EXISTS symbols_name_idx ON symbols (name);
+    CREATE INDEX IF NOT EXISTS symbols_kind_idx ON symbols (kind);
+    CREATE INDEX IF NOT EXISTS symbols_project_idx ON symbols (project);
+    CREATE INDEX IF NOT EXISTS symbols_embedding_idx ON symbols USING ivfflat (embedding vector_cosine_ops);
+
+    CREATE TABLE IF NOT EXISTS imports (
+        id SERIAL PRIMARY KEY,
+        source_path TEXT NOT NULL,
+        imported TEXT NOT NULL,
+        project TEXT,
+        indexed_at TIMESTAMP DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS imports_source_idx ON imports (source_path);
+    CREATE INDEX IF NOT EXISTS imports_imported_idx ON imports (imported);
+
+    CREATE TABLE IF NOT EXISTS calls (
+        id SERIAL PRIMARY KEY,
+        source_path TEXT NOT NULL,
+        callee TEXT NOT NULL,
+        project TEXT,
+        indexed_at TIMESTAMP DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS calls_source_idx ON calls (source_path);
+    CREATE INDEX IF NOT EXISTS calls_callee_idx ON calls (callee);
+    """
+    indexer.run_psql(sql)
 
 
 @app.callback(invoke_without_command=True)
@@ -31,72 +78,121 @@ def index_main(ctx: typer.Context) -> None:
 def index_file(
     file_path: str = typer.Argument(None, help="File to index"),
     project: str = typer.Option(None, "--project", "-p", help="Project name"),
+    analyze: bool = typer.Option(True, "--analyze/--no-analyze", help="Run AST analysis"),
 ) -> None:
-    """Index a single file."""
+    """Index a single file with optional AST analysis."""
     if not file_path:
         console.print("[red]File path required[/red]")
         raise typer.Exit(1)
-    
+
     path = Path(file_path)
     if not path.exists():
         console.print(f"[red]File not found: {file_path}[/red]")
         raise typer.Exit(1)
-    
+
     try:
         indexer = get_indexer()
-        
-        # Determine file type
+        ensure_symbols_table(indexer)
+
         ext = path.suffix.lower()
         content = path.read_text()
-        
+        project_name = project or "default"
+
+        # Index raw content with embedding
         if ext in indexer.CODE_EXTENSIONS:
-            # Index as code
-            file_id = f"{project or 'default'}:{file_path}"
+            file_id = f"{project_name}:{file_path}"
             embedding = indexer.get_embedding(content)
-            
+
             if embedding:
                 vec_str = "[" + ",".join(map(str, embedding)) + "]"
                 sql = f"""
                     INSERT INTO code_index (id, path, content, embedding, language, project)
-                    VALUES ('{file_id}', '{file_path}', '{content[:10000].replace("'", "''")}', '{vec_str}', '{ext[1:]}', '{project or "default"}')
+                    VALUES ('{file_id}', '{file_path}', '{content[:10000].replace("'", "''")}', '{vec_str}', '{ext[1:]}', '{project_name}')
                     ON CONFLICT (id) DO UPDATE SET
                         content = EXCLUDED.content,
                         embedding = EXCLUDED.embedding,
                         indexed_at = NOW()
                 """
-                result = indexer.run_psql(sql)
-                if result.get("success"):
-                    console.print(f"[green]✓[/green] Indexed {path.name}")
-                else:
-                    console.print(f"[red]✗[/red] Failed: {result.get('stderr', 'Unknown error')}")
-            else:
-                console.print(f"[yellow]⚠[/yellow] No embedding generated for {path.name}")
-                
+                indexer.run_psql(sql)
+                console.print(f"[green]✓[/green] Indexed content: {path.name}")
+
+            # Run AST analysis
+            if analyze:
+                result = analyze_file(path)
+                if result and not result.errors:
+                    # Clear old symbols/imports/calls for this file
+                    indexer.run_psql(f"DELETE FROM symbols WHERE path = '{file_path}'")
+                    indexer.run_psql(f"DELETE FROM imports WHERE source_path = '{file_path}'")
+                    indexer.run_psql(f"DELETE FROM calls WHERE source_path = '{file_path}'")
+
+                    # Insert symbols
+                    for sym in result.symbols:
+                        sym_id = generate_symbol_id(file_path, sym.name, sym.kind)
+                        # Generate embedding for signature + docstring
+                        sym_text = f"{sym.signature}\n{sym.docstring or ''}"
+                        sym_embedding = indexer.get_embedding(sym_text)
+
+                        vec_str = ""
+                        if sym_embedding:
+                            vec_str = ", embedding = '[" + ",".join(map(str, sym_embedding)) + "]'"
+
+                        docstring_escaped = (sym.docstring or "").replace("'", "''")[:2000]
+                        sql = f"""
+                            INSERT INTO symbols (id, path, name, kind, signature, start_line, end_line, docstring, parent, project)
+                            VALUES (
+                                '{sym_id}', '{file_path}', '{sym.name}', '{sym.kind}',
+                                '{sym.signature.replace("'", "''")}', {sym.start_line}, {sym.end_line},
+                                '{docstring_escaped}', '{sym.parent or ""}', '{project_name}'
+                            )
+                            ON CONFLICT (id) DO UPDATE SET
+                                signature = EXCLUDED.signature,
+                                start_line = EXCLUDED.start_line,
+                                end_line = EXCLUDED.end_line,
+                                docstring = EXCLUDED.docstring,
+                                indexed_at = NOW()
+                                {vec_str}
+                        """
+                        indexer.run_psql(sql)
+
+                    # Insert imports
+                    for imp in result.imports:
+                        sql = f"""
+                            INSERT INTO imports (source_path, imported, project)
+                            VALUES ('{file_path}', '{imp}', '{project_name}')
+                        """
+                        indexer.run_psql(sql)
+
+                    # Insert calls
+                    for call in result.calls:
+                        sql = f"""
+                            INSERT INTO calls (source_path, callee, project)
+                            VALUES ('{file_path}', '{call}', '{project_name}')
+                        """
+                        indexer.run_psql(sql)
+
+                    console.print(f"[green]✓[/green] Analyzed: {len(result.symbols)} symbols, {len(result.imports)} imports, {len(result.calls)} calls")
+                elif result and result.errors:
+                    console.print(f"[yellow]⚠[/yellow] Analysis errors: {result.errors[0]}")
+
         elif ext in indexer.DOC_EXTENSIONS:
-            # Index as doc
-            file_id = f"{project or 'default'}:{file_path}"
+            file_id = f"{project_name}:{file_path}"
             embedding = indexer.get_embedding(content)
-            
+
             if embedding:
                 vec_str = "[" + ",".join(map(str, embedding)) + "]"
                 sql = f"""
                     INSERT INTO doc_index (id, path, content, embedding, project)
-                    VALUES ('{file_id}', '{file_path}', '{content[:10000].replace("'", "''")}', '{vec_str}', '{project or "default"}')
+                    VALUES ('{file_id}', '{file_path}', '{content[:10000].replace("'", "''")}', '{vec_str}', '{project_name}')
                     ON CONFLICT (id) DO UPDATE SET
                         content = EXCLUDED.content,
                         embedding = EXCLUDED.embedding,
                         indexed_at = NOW()
                 """
-                result = indexer.run_psql(sql)
-                if result.get("success"):
-                    console.print(f"[green]✓[/green] Indexed {path.name}")
-                else:
-                    console.print(f"[red]✗[/red] Failed: {result.get('stderr')}")
-            else:
-                console.print(f"[yellow]⚠[/yellow] No embedding generated")
+                indexer.run_psql(sql)
+                console.print(f"[green]✓[/green] Indexed: {path.name}")
         else:
             console.print(f"[dim]Skipped {path.name} (unsupported extension)[/dim]")
-            
+
     except Exception as e:
         console.print(f"[red]Error: {e}[/red]")
         raise typer.Exit(1)
@@ -109,55 +205,179 @@ def index_hook() -> None:
         data = json.load(sys.stdin)
         file_path = data.get("tool_input", {}).get("file_path")
         cwd = data.get("cwd", "")
-        
+
         if not file_path:
-            return  # No file path in input
-        
-        # Determine project from cwd
-        project = Path(cwd).name if cwd else None
-        
-        # Check if file type is indexable
+            return
+
+        project = Path(cwd).name if cwd else "default"
         ext = Path(file_path).suffix.lower()
         indexer = get_indexer()
-        
+
         if ext not in indexer.CODE_EXTENSIONS and ext not in indexer.DOC_EXTENSIONS:
-            return  # Skip non-indexable files
-        
-        # Index the file (suppress output for hook)
+            return
+
         path = Path(file_path)
         if not path.exists():
             return
-            
+
+        ensure_symbols_table(indexer)
         content = path.read_text()
         embedding = indexer.get_embedding(content)
-        
+
         if not embedding:
             return
-            
-        file_id = f"{project or 'default'}:{file_path}"
+
+        file_id = f"{project}:{file_path}"
         vec_str = "[" + ",".join(map(str, embedding)) + "]"
-        
+
+        # Index content
         if ext in indexer.CODE_EXTENSIONS:
-            table = "code_index"
-            extra_cols = ", language"
-            extra_vals = f", '{ext[1:]}'"
+            sql = f"""
+                INSERT INTO code_index (id, path, content, embedding, language, project)
+                VALUES ('{file_id}', '{file_path}', '{content[:10000].replace("'", "''")}', '{vec_str}', '{ext[1:]}', '{project}')
+                ON CONFLICT (id) DO UPDATE SET
+                    content = EXCLUDED.content,
+                    embedding = EXCLUDED.embedding,
+                    indexed_at = NOW()
+            """
+            indexer.run_psql(sql)
+
+            # Run analysis
+            result = analyze_file(path)
+            if result and not result.errors:
+                indexer.run_psql(f"DELETE FROM symbols WHERE path = '{file_path}'")
+                indexer.run_psql(f"DELETE FROM imports WHERE source_path = '{file_path}'")
+                indexer.run_psql(f"DELETE FROM calls WHERE source_path = '{file_path}'")
+
+                for sym in result.symbols:
+                    sym_id = generate_symbol_id(file_path, sym.name, sym.kind)
+                    docstring_escaped = (sym.docstring or "").replace("'", "''")[:2000]
+                    sql = f"""
+                        INSERT INTO symbols (id, path, name, kind, signature, start_line, end_line, docstring, parent, project)
+                        VALUES (
+                            '{sym_id}', '{file_path}', '{sym.name}', '{sym.kind}',
+                            '{sym.signature.replace("'", "''")}', {sym.start_line}, {sym.end_line},
+                            '{docstring_escaped}', '{sym.parent or ""}', '{project}'
+                        )
+                        ON CONFLICT (id) DO UPDATE SET
+                            signature = EXCLUDED.signature,
+                            indexed_at = NOW()
+                    """
+                    indexer.run_psql(sql)
+
+                for imp in result.imports:
+                    indexer.run_psql(f"INSERT INTO imports (source_path, imported, project) VALUES ('{file_path}', '{imp}', '{project}')")
+
+                for call in result.calls:
+                    indexer.run_psql(f"INSERT INTO calls (source_path, callee, project) VALUES ('{file_path}', '{call}', '{project}')")
         else:
-            table = "doc_index"
-            extra_cols = ""
-            extra_vals = ""
-        
-        sql = f"""
-            INSERT INTO {table} (id, path, content, embedding, project{extra_cols})
-            VALUES ('{file_id}', '{file_path}', '{content[:10000].replace("'", "''")}', '{vec_str}', '{project or "default"}'{extra_vals})
-            ON CONFLICT (id) DO UPDATE SET
-                content = EXCLUDED.content,
-                embedding = EXCLUDED.embedding,
-                indexed_at = NOW()
-        """
-        indexer.run_psql(sql)
-        
-        # Output for Claude to see (optional)
-        print(json.dumps({"indexed": file_path}))
-        
+            sql = f"""
+                INSERT INTO doc_index (id, path, content, embedding, project)
+                VALUES ('{file_id}', '{file_path}', '{content[:10000].replace("'", "''")}', '{vec_str}', '{project}')
+                ON CONFLICT (id) DO UPDATE SET
+                    content = EXCLUDED.content,
+                    embedding = EXCLUDED.embedding,
+                    indexed_at = NOW()
+            """
+            indexer.run_psql(sql)
+
+        print(json.dumps({"indexed": file_path, "analyzed": ext in indexer.CODE_EXTENSIONS}))
+
     except Exception:
-        pass  # Silently fail for hooks
+        pass
+
+
+@app.command("symbols")
+def list_symbols(
+    path: str = typer.Option(None, "--path", "-f", help="Filter by file path"),
+    kind: str = typer.Option(None, "--kind", "-k", help="Filter by kind (function/class/method)"),
+    project: str = typer.Option(None, "--project", "-p", help="Filter by project"),
+    limit: int = typer.Option(50, "--limit", "-n", help="Max results"),
+) -> None:
+    """List indexed symbols."""
+    try:
+        indexer = get_indexer()
+
+        sql = "SELECT name, kind, signature, path, start_line FROM symbols WHERE 1=1"
+        if path:
+            sql += f" AND path LIKE '%{path}%'"
+        if kind:
+            sql += f" AND kind = '{kind}'"
+        if project:
+            sql += f" AND project = '{project}'"
+        sql += f" ORDER BY path, start_line LIMIT {limit}"
+
+        result = indexer.run_psql(sql)
+        if result.get("success") and result.get("stdout"):
+            for line in result["stdout"].strip().split("\n"):
+                if line:
+                    parts = line.split("|")
+                    if len(parts) >= 4:
+                        console.print(f"[cyan]{parts[1]}[/cyan] {parts[0]}: {parts[2]} ({parts[3]}:{parts[4] if len(parts) > 4 else '?'})")
+        else:
+            console.print("[dim]No symbols found[/dim]")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+
+
+@app.command("deps")
+def show_deps(
+    path: str = typer.Argument(..., help="File path to show dependencies for"),
+) -> None:
+    """Show imports and dependencies for a file."""
+    try:
+        indexer = get_indexer()
+
+        # Get imports
+        sql = f"SELECT imported FROM imports WHERE source_path = '{path}'"
+        result = indexer.run_psql(sql)
+
+        console.print(f"[bold]Imports in {path}:[/bold]")
+        if result.get("success") and result.get("stdout"):
+            for line in result["stdout"].strip().split("\n"):
+                if line:
+                    console.print(f"  {line}")
+        else:
+            console.print("  [dim]None[/dim]")
+
+        # Get calls
+        sql = f"SELECT DISTINCT callee FROM calls WHERE source_path = '{path}'"
+        result = indexer.run_psql(sql)
+
+        console.print(f"\n[bold]Function calls:[/bold]")
+        if result.get("success") and result.get("stdout"):
+            for line in result["stdout"].strip().split("\n"):
+                if line:
+                    console.print(f"  {line}")
+        else:
+            console.print("  [dim]None[/dim]")
+
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+
+
+@app.command("callers")
+def show_callers(
+    name: str = typer.Argument(..., help="Function/method name"),
+    project: str = typer.Option(None, "--project", "-p", help="Filter by project"),
+) -> None:
+    """Show files that call a function."""
+    try:
+        indexer = get_indexer()
+
+        sql = f"SELECT DISTINCT source_path FROM calls WHERE callee = '{name}'"
+        if project:
+            sql += f" AND project = '{project}'"
+
+        result = indexer.run_psql(sql)
+
+        console.print(f"[bold]Files calling '{name}':[/bold]")
+        if result.get("success") and result.get("stdout"):
+            for line in result["stdout"].strip().split("\n"):
+                if line:
+                    console.print(f"  {line}")
+        else:
+            console.print("  [dim]None found[/dim]")
+
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
