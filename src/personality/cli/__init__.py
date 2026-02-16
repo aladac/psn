@@ -4,7 +4,7 @@ import typer
 from rich.console import Console
 
 from personality import __version__
-from personality.cli import hooks
+from personality.cli import context, hooks
 
 app = typer.Typer(
     name="psn",
@@ -14,6 +14,7 @@ app = typer.Typer(
 console = Console()
 
 app.add_typer(hooks.app, name="hooks", help="Claude Code hooks management")
+app.add_typer(context.app, name="context", help="Context tracking")
 
 
 def version_callback(value: bool) -> None:

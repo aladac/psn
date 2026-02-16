@@ -13,10 +13,11 @@
     ],
     "PostToolUse": [
       {
+        "matcher": "Read",
         "hooks": [
           {
             "type": "command",
-            "command": "psn hooks post-tool-use",
+            "command": "psn context track-read",
             "timeout": 5000
           }
         ]
