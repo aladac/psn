@@ -14,7 +14,15 @@
     "ollama",
     "postgres",
     "sqlite",
-    "tts"
+    "tts",
+    "mcp"
   ],
-  "hooks": "./hooks/hooks.json"
+  "hooks": "./hooks/hooks.json",
+  "mcpServers": {
+    "personality": {
+      "command": "psn",
+      "args": ["mcp", "serve"],
+      "description": "Personality MCP server - persona, user, host, and project resources"
+    }
+  }
 }

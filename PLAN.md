@@ -1,303 +1,221 @@
-# Plan: Personality Cartridge System
+# Plan: MCP Resources & Prompts
 
-Restore the full persona/cartridge system from legacy repos into the current plugin.
+Add MCP server capabilities to expose persona data via resources and reusable prompt templates.
 
-## Phase 1: Training Data & Parser
+## Phase 1: MCP Server Foundation
 
 ### Description
-Port the 9 training personas from `personality-mcp` and implement YAML parser. This establishes the foundation for persona loading without changing the existing infrastructure.
+Set up the MCP server infrastructure using the `mcp` Python package. Register server in plugin configuration.
 
 ### Steps
 
-#### Step 1.1: Copy Training Data
-- **Objective**: Bring all 9 persona YAML files into current plugin
+#### Step 1.1: Create MCP Server Entry Point
+- **Objective**: Initialize MCP server with personality namespace
 - **Files**:
-  - `training/GLADOS.yml`
-  - `training/TACHIKOMA.yml`
-  - `training/HAL.yml`
-  - `training/SHODAN.yml`
-  - `training/KITT.yml`
-  - `training/JARVIS.yml`
-  - `training/LCARS.yml`
-  - `training/FRIDAY.yml`
-  - `training/BT7274.yml`
+  - `src/personality/mcp/__init__.py`
+  - `src/personality/mcp/server.py`
 - **Dependencies**: None
 - **Implementation**:
-  - Copy from `Legacy/personality-mcp/training/`
-  - Verify YAML syntax is valid
-  - Create `training/README.md` documenting format
+  - Install `mcp` package, add to pyproject.toml
+  - Create Server instance with name "personality"
+  - Add stdio transport for Claude Code integration
+  - Create `psn mcp serve` command to run server
 
-#### Step 1.2: Implement Training Parser
-- **Objective**: Parse YAML training files into Python dataclasses
+#### Step 1.2: Register MCP Server in Plugin
+- **Objective**: Wire MCP server into plugin.json
 - **Files**:
-  - `src/personality/schemas/training.py`
-  - `src/personality/services/training_parser.py`
+  - `.claude-plugin/plugin.json`
 - **Dependencies**: Step 1.1
 - **Implementation**:
-  - Port `TrainingDocument`, `TrainingMemory` schemas from personality-mcp
-  - Port `training_parser.py` with YAML loading
-  - Add unit tests for parser
+  - Add `mcpServers` section to plugin.json
+  - Configure stdio transport pointing to `psn mcp serve`
+  - Test server discovery in Claude Code
 
-#### Step 1.3: Add Persona CLI Commands
-- **Objective**: CLI commands to list and inspect personas
-- **Files**:
-  - `src/personality/cli/persona.py`
-  - `src/personality/cli/__init__.py`
-- **Dependencies**: Step 1.2
-- **Implementation**:
-  - `psn persona list` - list available training files
-  - `psn persona show <name>` - display persona details
-  - `psn persona validate <name>` - validate YAML syntax
-
-## Phase 2: Cartridge System
+## Phase 2: Persona Resources
 
 ### Description
-Implement the .pcart zip format for packaging personas with user preferences. Support loading, switching, and persisting active persona.
+Implement MCP resources for persona and cart data access.
 
 ### Steps
 
-#### Step 2.1: Define Pcart Schema
-- **Objective**: Python dataclasses for pcart structure
+#### Step 2.1: Implement Current Memories Resource
+- **Objective**: Expose current persona's memories via `persona://current/memories`
 - **Files**:
-  - `src/personality/schemas/pcart.py`
-- **Dependencies**: Step 1.2
+  - `src/personality/mcp/resources/persona.py`
+- **Dependencies**: Step 1.1
 - **Implementation**:
-  - `PersonaConfig` dataclass (from persona.yml)
-  - `PreferencesConfig` dataclass (from preferences.yml)
-  - `Cartridge` dataclass combining both
+  - Register `persona://current/memories` resource
+  - Load active cart from registry
+  - Return memories as JSON array with subject, content, source
+  - Handle no active cart case gracefully
 
-#### Step 2.2: Implement Cart Manager
-- **Objective**: Load/save pcart zip files
+#### Step 2.2: Implement Current Identity Resource
+- **Objective**: Expose persona identity via `persona://current/identity`
 - **Files**:
-  - `src/personality/services/cart_manager.py`
+  - `src/personality/mcp/resources/persona.py`
 - **Dependencies**: Step 2.1
 - **Implementation**:
-  - Port from `Legacy/personality-plugin/src/personality/services/cart_manager.py`
-  - `load_cart(path)` - read zip, parse YAML files
-  - `save_cart(cart, path)` - write zip with persona.yml + preferences.yml
-  - `create_cart_from_training(training_file)` - bootstrap pcart from training YAML
+  - Register `persona://current/identity` resource
+  - Return identity fields: name, full_name, type, tagline
+  - Include preferences.tts config
+  - Return empty/default if no active cart
 
-#### Step 2.3: Implement Cart Registry
-- **Objective**: Track available and active cartridges
+#### Step 2.3: Implement Current Cart Resource
+- **Objective**: Expose full cart details via `persona://current/cart`
 - **Files**:
-  - `src/personality/services/cart_registry.py`
-  - `carts/` directory
-- **Dependencies**: Step 2.2
+  - `src/personality/mcp/resources/persona.py`
+- **Dependencies**: Step 2.1
 - **Implementation**:
-  - Scan `carts/` directory for .pcart files
-  - Track active cart in `current_cart.toml`
-  - `switch_persona(name)` method
+  - Register `persona://current/cart` resource
+  - Return cart manifest, memory count, voice setting
+  - Include path to .pcart file
+  - List available carts if none active
 
-#### Step 2.4: Add Cart CLI Commands
-- **Objective**: CLI for cart management
-- **Files**:
-  - `src/personality/cli/cart.py`
-- **Dependencies**: Step 2.3
-- **Implementation**:
-  - `psn cart list` - list installed carts
-  - `psn cart create <training>` - create pcart from training file
-  - `psn cart switch <name>` - switch active persona
-  - `psn cart show` - show active persona details
-
-## Phase 3: Persona Builder
+## Phase 3: System Resources
 
 ### Description
-Generate LLM instruction text from loaded persona memories. Inject persona context at session start via hook.
+Implement MCP resources for system and user information.
 
 ### Steps
 
-#### Step 3.1: Implement Persona Builder
-- **Objective**: Convert memories to instruction prompt
+#### Step 3.1: Implement User Resource
+- **Objective**: Expose user details via `persona://user`
 - **Files**:
-  - `src/personality/services/persona_builder.py`
-- **Dependencies**: Step 2.3
+  - `src/personality/mcp/resources/system.py`
+- **Dependencies**: Step 1.1
 - **Implementation**:
-  - Port from `Legacy/personality-mcp/src/personality/services/persona_builder.py`
-  - Group memories by subject prefix (self.identity, self.trait, etc.)
-  - Generate structured prompt with identity, traits, speech patterns
-  - Support greeting templates with `{{USER_ID}}`, `{{TIME_GREETING}}`
+  - Register `persona://user` resource
+  - Return uid, gid, username, real name (from pwd/getpass)
+  - Return groups (from grp module)
+  - Return home directory, shell
 
-#### Step 3.2: Wire SessionStart Hook
-- **Objective**: Inject persona prompt at session start
+#### Step 3.2: Implement Host Resource
+- **Objective**: Expose host details via `persona://host`
 - **Files**:
-  - `src/personality/cli/hooks.py`
-  - `prompts/intro.md`
+  - `src/personality/mcp/resources/system.py`
 - **Dependencies**: Step 3.1
 - **Implementation**:
-  - Update `session_start()` to load active cart
-  - Call persona builder to generate prompt
-  - Output combined intro + persona prompt
-  - Handle case when no cart is active (fallback to basic intro)
+  - Register `persona://host` resource
+  - Return uname info (system, node, release, version, machine)
+  - Return uptime (from /proc/uptime or `uptime` command)
+  - Return current datetime, timezone
 
-#### Step 3.3: Add TTS Integration
-- **Objective**: Use persona's preferred voice for TTS
+#### Step 3.3: Implement Current Project Resource
+- **Objective**: Expose project details via `persona://current/project`
 - **Files**:
-  - `src/personality/services/cart_manager.py`
-  - `src/personality/cli/tts.py`
-- **Dependencies**: Step 3.1
+  - `src/personality/mcp/resources/project.py`
+- **Dependencies**: Step 1.1
 - **Implementation**:
-  - Read `tts.voice` from persona preferences
-  - Auto-switch voice when persona changes
-  - Add `psn tts current` to show active voice
+  - Register `persona://current/project` resource
+  - Detect project root from CLAUDE_PROJECT_DIR or cwd
+  - Return project name, path, git branch/status
+  - Detect language from pyproject.toml, package.json, Cargo.toml, Gemfile
+  - Return framework hints if detectable
 
-## Phase 4: Knowledge Graph
+## Phase 4: Knowledge Resources
 
 ### Description
-Add subject-predicate-object triple storage for structured knowledge. Enable semantic queries across persona knowledge.
+Implement MCP resource for knowledge graph access.
 
 ### Steps
 
-#### Step 4.1: Add Knowledge Table
-- **Objective**: Database schema for knowledge triples
+#### Step 4.1: Implement Knowledge Triples Resource
+- **Objective**: Expose knowledge graph via `knowledge://triples`
 - **Files**:
-  - `src/personality/cli/index.py` (add table creation)
-  - `src/personality/schemas/knowledge.py`
-- **Dependencies**: None (parallel to Phase 2-3)
+  - `src/personality/mcp/resources/knowledge.py`
+- **Dependencies**: Step 1.1, existing knowledge service
 - **Implementation**:
-  - Create `knowledge` table: id, subject, predicate, object, project, embedding, created_at
-  - Add vector index on embedding column
-  - Create `KnowledgeTriple` dataclass
+  - Register `knowledge://triples` resource
+  - Accept optional query parameters (subject, predicate)
+  - Return triples as JSON array
+  - Include triple count and last updated timestamp
 
-#### Step 4.2: Implement Knowledge Service
-- **Objective**: CRUD operations for knowledge triples
-- **Files**:
-  - `src/personality/services/knowledge.py`
-- **Dependencies**: Step 4.1
-- **Implementation**:
-  - `add_knowledge(subject, predicate, object)`
-  - `query_knowledge(subject=None, predicate=None)`
-  - `search_knowledge(query)` - semantic search
-
-#### Step 4.3: Add Knowledge CLI
-- **Objective**: CLI for knowledge management
-- **Files**:
-  - `src/personality/cli/knowledge.py`
-- **Dependencies**: Step 4.2
-- **Implementation**:
-  - `psn knowledge add "X" "is a" "Y"`
-  - `psn knowledge query --subject "X"`
-  - `psn knowledge search "query"`
-  - `psn knowledge list`
-
-## Phase 5: Decision Tracking
+## Phase 5: MCP Prompts
 
 ### Description
-Track architectural decisions with rationale, alternatives considered, and outcome. Integrate with project context.
+Implement reusable prompt templates for persona interactions.
 
 ### Steps
 
-#### Step 5.1: Add Decision Table
-- **Objective**: Database schema for decisions
+#### Step 5.1: Implement Persona Greeting Prompt
+- **Objective**: Generate in-character greetings
 - **Files**:
-  - `src/personality/cli/index.py`
-  - `src/personality/schemas/decision.py`
-- **Dependencies**: None (parallel)
+  - `src/personality/mcp/prompts/__init__.py`
+  - `src/personality/mcp/prompts/persona.py`
+- **Dependencies**: Step 1.1, persona_builder service
 - **Implementation**:
-  - Create `decisions` table: id, title, context, decision, rationale, alternatives, status, project, created_at
-  - Create `Decision` dataclass
+  - Register `persona-greeting` prompt
+  - Accept optional `user_name` argument
+  - Use persona_builder to generate greeting
+  - Include time-of-day awareness
 
-#### Step 5.2: Implement Decision Service
-- **Objective**: CRUD for decisions
+#### Step 5.2: Implement In-Character Prompt
+- **Objective**: Frame questions for in-character responses
 - **Files**:
-  - `src/personality/services/decision.py`
+  - `src/personality/mcp/prompts/persona.py`
 - **Dependencies**: Step 5.1
 - **Implementation**:
-  - `record_decision(title, context, decision, rationale, alternatives)`
-  - `list_decisions(project=None, status=None)`
-  - `update_decision(id, status)`
+  - Register `in-character` prompt
+  - Accept `question` argument (required)
+  - Load active persona identity and traits
+  - Generate prompt instructing Claude to respond in character
 
-#### Step 5.3: Add Decision CLI
-- **Objective**: CLI for decision tracking
+#### Step 5.3: Implement Remember Prompt
+- **Objective**: Store memories about user/project
 - **Files**:
-  - `src/personality/cli/decision.py`
-- **Dependencies**: Step 5.2
+  - `src/personality/mcp/prompts/memory.py`
+- **Dependencies**: Step 5.1
 - **Implementation**:
-  - `psn decision record "Title"` - interactive decision recording
-  - `psn decision list` - list decisions
-  - `psn decision show <id>` - show decision details
+  - Register `remember` prompt
+  - Accept `subject` and `content` arguments
+  - Generate prompt to store as memory
+  - Suggest appropriate subject taxonomy
 
-## Phase 6: Memory Management
+#### Step 5.4: Implement Knowledge Query Prompt
+- **Objective**: Query knowledge graph naturally
+- **Files**:
+  - `src/personality/mcp/prompts/knowledge.py`
+- **Dependencies**: Step 5.1
+- **Implementation**:
+  - Register `knowledge-query` prompt
+  - Accept `query` argument
+  - Frame as natural language knowledge lookup
+  - Include context about available knowledge
+
+## Phase 6: Integration & Testing
 
 ### Description
-Add memory consolidation and pruning to manage context budget. Extract learnings from conversations and consolidate related memories.
+Wire everything together and verify with Claude Code.
 
 ### Steps
 
-#### Step 6.1: Implement Memory Extractor
-- **Objective**: Extract learnings from conversation transcripts
+#### Step 6.1: Add Resource Listing
+- **Objective**: Implement list_resources handler
 - **Files**:
-  - `src/personality/services/memory_extractor.py`
-- **Dependencies**: Existing memory system
+  - `src/personality/mcp/server.py`
+- **Dependencies**: Phases 2-4
 - **Implementation**:
-  - Parse transcript for user corrections, preferences, facts
-  - Categorize by subject taxonomy (user.*, self.*, project.*)
-  - Dedupe against existing memories
+  - Register all resources with descriptions
+  - Return proper Resource objects with URIs
+  - Add mimeType hints (application/json)
 
-#### Step 6.2: Implement Memory Consolidator
-- **Objective**: Merge related memories to reduce count
+#### Step 6.2: Add Prompt Listing
+- **Objective**: Implement list_prompts handler
 - **Files**:
-  - `src/personality/services/memory_consolidator.py`
-- **Dependencies**: Step 6.1
+  - `src/personality/mcp/server.py`
+- **Dependencies**: Phase 5
 - **Implementation**:
-  - Find memories with similar subjects
-  - Merge content while preserving key facts
-  - Update embeddings for merged memories
+  - Register all prompts with descriptions
+  - Define PromptArgument schemas
+  - Mark required vs optional arguments
 
-#### Step 6.3: Implement Memory Pruner
-- **Objective**: Remove stale or low-value memories
+#### Step 6.3: Add MCP CLI Commands
+- **Objective**: CLI for testing MCP functionality
 - **Files**:
-  - `src/personality/services/memory_pruner.py`
-- **Dependencies**: Step 6.2
+  - `src/personality/cli/mcp.py`
+- **Dependencies**: Steps 6.1, 6.2
 - **Implementation**:
-  - Score memories by recency, access count, relevance
-  - Archive low-score memories (don't delete)
-  - Set configurable retention policy
-
-#### Step 6.4: Wire PreCompact Hook
-- **Objective**: Consolidate/prune before context compression
-- **Files**:
-  - `hooks/hooks.json`
-  - `src/personality/cli/memory.py`
-- **Dependencies**: Steps 6.1-6.3
-- **Implementation**:
-  - Add `psn memory consolidate` command
-  - Update PreCompact hook to run consolidation
-  - Log consolidation results
-
-## Phase 7: Voice Models
-
-### Description
-Add character voice models and integrate with TTS system.
-
-### Steps
-
-#### Step 7.1: Copy Voice Models
-- **Objective**: Bring BT7274 voice into plugin
-- **Files**:
-  - `voices/BT7274.onnx`
-  - `voices/BT7274.onnx.json`
-- **Dependencies**: None
-- **Implementation**:
-  - Copy from `Legacy/personality-hooks/piper/`
-  - Update `psn tts voices` to scan `voices/` directory
-  - Document voice model format
-
-#### Step 7.2: Add Voice Download Command
-- **Objective**: Download character voices from HuggingFace
-- **Files**:
-  - `src/personality/cli/tts.py`
-- **Dependencies**: Step 7.1
-- **Implementation**:
-  - `psn tts download-character hal9000` - download from HF
-  - Support HAL, GLaDOS, JARVIS from doc/tts-voices.md
-  - Validate downloaded files
-
-#### Step 7.3: Wire Persona Voice Switching
-- **Objective**: Auto-switch voice when persona changes
-- **Files**:
-  - `src/personality/services/cart_manager.py`
-- **Dependencies**: Steps 7.1, 2.3
-- **Implementation**:
-  - Read `tts.voice` from active cart preferences
-  - Switch default voice on cart switch
-  - Fallback to en_US-lessac-medium if voice not found
+  - `psn mcp resources` - list available resources
+  - `psn mcp read <uri>` - read a resource
+  - `psn mcp prompts` - list available prompts
+  - `psn mcp prompt <name> [args]` - execute a prompt
