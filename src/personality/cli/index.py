@@ -19,6 +19,7 @@ def get_indexer():
     """Lazy import indexer module."""
     sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "servers"))
     import indexer
+
     return indexer
 
 
@@ -172,7 +173,9 @@ def index_file(
                         """
                         indexer.run_psql(sql)
 
-                    console.print(f"[green]✓[/green] Analyzed: {len(result.symbols)} symbols, {len(result.imports)} imports, {len(result.calls)} calls")
+                    console.print(
+                        f"[green]✓[/green] Analyzed: {len(result.symbols)} symbols, {len(result.imports)} imports, {len(result.calls)} calls"
+                    )
                 elif result and result.errors:
                     console.print(f"[yellow]⚠[/yellow] Analysis errors: {result.errors[0]}")
 
@@ -268,10 +271,14 @@ def index_hook() -> None:
                     indexer.run_psql(sql)
 
                 for imp in result.imports:
-                    indexer.run_psql(f"INSERT INTO imports (source_path, imported, project) VALUES ('{file_path}', '{imp}', '{project}')")
+                    indexer.run_psql(
+                        f"INSERT INTO imports (source_path, imported, project) VALUES ('{file_path}', '{imp}', '{project}')"
+                    )
 
                 for call in result.calls:
-                    indexer.run_psql(f"INSERT INTO calls (source_path, callee, project) VALUES ('{file_path}', '{call}', '{project}')")
+                    indexer.run_psql(
+                        f"INSERT INTO calls (source_path, callee, project) VALUES ('{file_path}', '{call}', '{project}')"
+                    )
         else:
             sql = f"""
                 INSERT INTO doc_index (id, path, content, embedding, project)
@@ -315,7 +322,9 @@ def list_symbols(
                 if line:
                     parts = line.split("|")
                     if len(parts) >= 4:
-                        console.print(f"[cyan]{parts[1]}[/cyan] {parts[0]}: {parts[2]} ({parts[3]}:{parts[4] if len(parts) > 4 else '?'})")
+                        console.print(
+                            f"[cyan]{parts[1]}[/cyan] {parts[0]}: {parts[2]} ({parts[3]}:{parts[4] if len(parts) > 4 else '?'})"
+                        )
         else:
             console.print("[dim]No symbols found[/dim]")
     except Exception as e:
@@ -437,7 +446,9 @@ def show_diff(
             if file_path.suffix.lower() not in extensions:
                 continue
             # Skip hidden/vendor directories
-            if any(p.startswith(".") or p in ("node_modules", "vendor", "__pycache__", ".git") for p in file_path.parts):
+            if any(
+                p.startswith(".") or p in ("node_modules", "vendor", "__pycache__", ".git") for p in file_path.parts
+            ):
                 continue
 
             str_path = str(file_path)
@@ -475,11 +486,23 @@ def show_diff(
         table.add_column("Files")
 
         if new_files:
-            table.add_row("[green]New[/green]", str(len(new_files)), "\n".join(new_files[:5]) + ("..." if len(new_files) > 5 else ""))
+            table.add_row(
+                "[green]New[/green]",
+                str(len(new_files)),
+                "\n".join(new_files[:5]) + ("..." if len(new_files) > 5 else ""),
+            )
         if modified_files:
-            table.add_row("[yellow]Modified[/yellow]", str(len(modified_files)), "\n".join(modified_files[:5]) + ("..." if len(modified_files) > 5 else ""))
+            table.add_row(
+                "[yellow]Modified[/yellow]",
+                str(len(modified_files)),
+                "\n".join(modified_files[:5]) + ("..." if len(modified_files) > 5 else ""),
+            )
         if deleted_files:
-            table.add_row("[red]Deleted[/red]", str(len(deleted_files)), "\n".join(deleted_files[:5]) + ("..." if len(deleted_files) > 5 else ""))
+            table.add_row(
+                "[red]Deleted[/red]",
+                str(len(deleted_files)),
+                "\n".join(deleted_files[:5]) + ("..." if len(deleted_files) > 5 else ""),
+            )
 
         if not new_files and not modified_files and not deleted_files:
             console.print("[green]✓[/green] Index is up to date")
@@ -526,7 +549,9 @@ def sync_index(
                 continue
             if file_path.suffix.lower() not in extensions:
                 continue
-            if any(p.startswith(".") or p in ("node_modules", "vendor", "__pycache__", ".git") for p in file_path.parts):
+            if any(
+                p.startswith(".") or p in ("node_modules", "vendor", "__pycache__", ".git") for p in file_path.parts
+            ):
                 continue
 
             str_path = str(file_path)
@@ -605,10 +630,14 @@ def sync_index(
                             indexer.run_psql(sql)
 
                         for imp in result.imports:
-                            indexer.run_psql(f"INSERT INTO imports (source_path, imported, project) VALUES ('{str_path}', '{imp}', '{project_name}')")
+                            indexer.run_psql(
+                                f"INSERT INTO imports (source_path, imported, project) VALUES ('{str_path}', '{imp}', '{project_name}')"
+                            )
 
                         for call in result.calls:
-                            indexer.run_psql(f"INSERT INTO calls (source_path, callee, project) VALUES ('{str_path}', '{call}', '{project_name}')")
+                            indexer.run_psql(
+                                f"INSERT INTO calls (source_path, callee, project) VALUES ('{str_path}', '{call}', '{project_name}')"
+                            )
                 else:
                     sql = f"""
                         INSERT INTO doc_index (id, path, content, embedding, project)

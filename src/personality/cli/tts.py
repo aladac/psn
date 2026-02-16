@@ -100,7 +100,7 @@ def download_voice(
 
     # Piper voices URL pattern
     base_url = f"https://huggingface.co/rhasspy/piper-voices/resolve/main"
-    
+
     # Parse voice name: lang_REGION-name-quality
     parts = voice.split("-")
     if len(parts) >= 2:
@@ -108,7 +108,7 @@ def download_voice(
         lang_short = lang.split("_")[0]  # e.g., en
         name = parts[1]  # e.g., lessac
         quality = parts[2] if len(parts) > 2 else "medium"
-        
+
         model_url = f"{base_url}/{lang_short}/{lang}/{name}/{quality}/{voice}.onnx"
         config_url = f"{base_url}/{lang_short}/{lang}/{name}/{quality}/{voice}.onnx.json"
     else:

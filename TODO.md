@@ -1,9 +1,9 @@
 # TODO: Personality Cartridge System
 
 ## Phase 1: Training Data & Parser
-- [ ] Step 1.1: Copy Training Data (9 YAML files from Legacy/personality-mcp)
-- [ ] Step 1.2: Implement Training Parser (schemas + parser service)
-- [ ] Step 1.3: Add Persona CLI Commands (list, show, validate)
+- [x] Step 1.1: Copy Training Data (10 YAML files from Legacy/personality-mcp)
+- [x] Step 1.2: Implement Training Parser (schemas + parser service)
+- [x] Step 1.3: Add Persona CLI Commands (list, show, validate)
 
 ## Phase 2: Cartridge System
 - [ ] Step 2.1: Define Pcart Schema (PersonaConfig, PreferencesConfig, Cartridge)
@@ -39,4 +39,4 @@
 
 ---
 
-**Total:** 0/22 steps completed
+**Total:** 3/22 steps completed

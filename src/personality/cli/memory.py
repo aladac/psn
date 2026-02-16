@@ -35,14 +35,14 @@ def get_memory_dir(project_path: str | None = None) -> Path:
 def extract_learnings(transcript_path: Path, last_n: int = 10) -> list[dict]:
     """Extract potential learnings from recent transcript entries."""
     learnings = []
-    
+
     if not transcript_path.exists():
         return learnings
-    
+
     # Read last N lines of transcript
     lines = transcript_path.read_text().strip().split("\n")
     recent = lines[-last_n:] if len(lines) > last_n else lines
-    
+
     for line in recent:
         try:
             entry = json.loads(line)
@@ -51,23 +51,27 @@ def extract_learnings(transcript_path: Path, last_n: int = 10) -> list[dict]:
                 text = entry.get("message", "").lower()
                 # User corrections or preferences
                 if any(kw in text for kw in ["always", "never", "remember", "don't forget", "preference"]):
-                    learnings.append({
-                        "type": "user_preference",
-                        "content": entry.get("message"),
-                        "timestamp": datetime.now().isoformat()
-                    })
+                    learnings.append(
+                        {
+                            "type": "user_preference",
+                            "content": entry.get("message"),
+                            "timestamp": datetime.now().isoformat(),
+                        }
+                    )
             elif entry.get("type") == "assistant":
                 # Check for important discoveries
                 text = entry.get("message", "").lower()
                 if any(kw in text for kw in ["learned", "discovered", "realized", "important"]):
-                    learnings.append({
-                        "type": "discovery",
-                        "content": entry.get("message")[:500],  # Truncate
-                        "timestamp": datetime.now().isoformat()
-                    })
+                    learnings.append(
+                        {
+                            "type": "discovery",
+                            "content": entry.get("message")[:500],  # Truncate
+                            "timestamp": datetime.now().isoformat(),
+                        }
+                    )
         except json.JSONDecodeError:
             continue
-    
+
     return learnings
 
 
@@ -75,18 +79,18 @@ def append_to_memory(memory_dir: Path, learnings: list[dict]) -> int:
     """Append learnings to memory files. Returns count of items saved."""
     if not learnings:
         return 0
-    
+
     memory_dir.mkdir(parents=True, exist_ok=True)
-    
+
     # Append to a learnings log file
     log_file = memory_dir / "learnings.jsonl"
-    
+
     saved = 0
     with log_file.open("a") as f:
         for learning in learnings:
             f.write(json.dumps(learning) + "\n")
             saved += 1
-    
+
     return saved
 
 
@@ -97,13 +101,13 @@ def save() -> None:
         data = json.load(sys.stdin)
         transcript_path = data.get("transcript_path")
         cwd = data.get("cwd")
-        
+
         if not transcript_path:
             return
-        
+
         transcript = Path(transcript_path)
         learnings = extract_learnings(transcript)
-        
+
         if learnings:
             memory_dir = get_memory_dir(cwd)
             count = append_to_memory(memory_dir, learnings)
@@ -122,14 +126,14 @@ def list_memories(
     """List recent memories."""
     memory_dir = get_memory_dir(project)
     log_file = memory_dir / "learnings.jsonl"
-    
+
     if not log_file.exists():
         console.print("[dim]No memories found[/dim]")
         return
-    
+
     lines = log_file.read_text().strip().split("\n")
     recent = lines[-limit:] if len(lines) > limit else lines
-    
+
     for line in reversed(recent):
         try:
             entry = json.loads(line)
@@ -148,7 +152,7 @@ def clear(
     """Clear all memories."""
     memory_dir = get_memory_dir(project)
     log_file = memory_dir / "learnings.jsonl"
-    
+
     if log_file.exists():
         log_file.unlink()
         console.print("[green]Memories cleared[/green]")

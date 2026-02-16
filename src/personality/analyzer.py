@@ -52,7 +52,7 @@ LANGUAGE_CONFIGS = {
         "language": "ruby",
         "function_query": "(method name: (identifier) @name)",
         "class_query": "(class name: (constant) @name)",
-        "import_query": "(call method: (identifier) @name (#eq? @name \"require\"))",
+        "import_query": '(call method: (identifier) @name (#eq? @name "require"))',
         "call_query": "(call method: (identifier) @name)",
     },
     ".go": {
@@ -68,6 +68,7 @@ LANGUAGE_CONFIGS = {
 @dataclass
 class Symbol:
     """A code symbol (function, class, method)."""
+
     name: str
     kind: str  # function, class, method, variable
     signature: str
@@ -80,13 +81,14 @@ class Symbol:
 @dataclass
 class AnalysisResult:
     """Result of analyzing a source file."""
+
     path: str
     language: str
     symbols: list[Symbol] = field(default_factory=list)
     imports: list[str] = field(default_factory=list)
     calls: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
-    
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "path": self.path,
@@ -107,7 +109,7 @@ class AnalysisResult:
             "calls": self.calls,
             "errors": self.errors,
         }
-    
+
     def to_json(self) -> str:
         return json.dumps(self.to_dict(), indent=2)
 
@@ -115,12 +117,12 @@ class AnalysisResult:
 def analyze_python(content: str, path: str) -> AnalysisResult:
     """Analyze Python code using ast module (fallback without tree-sitter)."""
     import ast
-    
+
     result = AnalysisResult(path=path, language="python")
-    
+
     try:
         tree = ast.parse(content)
-        
+
         for node in ast.walk(tree):
             if isinstance(node, ast.FunctionDef):
                 # Get signature
@@ -130,16 +132,16 @@ def analyze_python(content: str, path: str) -> AnalysisResult:
                     if arg.annotation:
                         arg_str += f": {ast.unparse(arg.annotation)}"
                     args.append(arg_str)
-                
+
                 returns = ""
                 if node.returns:
                     returns = f" -> {ast.unparse(node.returns)}"
-                
+
                 signature = f"def {node.name}({', '.join(args)}){returns}"
-                
+
                 # Get docstring
                 docstring = ast.get_docstring(node)
-                
+
                 # Determine if method (has self/cls first arg)
                 parent = None
                 kind = "function"
@@ -151,58 +153,62 @@ def analyze_python(content: str, path: str) -> AnalysisResult:
                             if node in ast.walk(parent_node):
                                 parent = parent_node.name
                                 break
-                
-                result.symbols.append(Symbol(
-                    name=node.name,
-                    kind=kind,
-                    signature=signature,
-                    start_line=node.lineno,
-                    end_line=node.end_lineno or node.lineno,
-                    docstring=docstring,
-                    parent=parent,
-                ))
-            
+
+                result.symbols.append(
+                    Symbol(
+                        name=node.name,
+                        kind=kind,
+                        signature=signature,
+                        start_line=node.lineno,
+                        end_line=node.end_lineno or node.lineno,
+                        docstring=docstring,
+                        parent=parent,
+                    )
+                )
+
             elif isinstance(node, ast.ClassDef):
                 # Get base classes
                 bases = [ast.unparse(b) for b in node.bases]
                 signature = f"class {node.name}"
                 if bases:
                     signature += f"({', '.join(bases)})"
-                
+
                 docstring = ast.get_docstring(node)
-                
-                result.symbols.append(Symbol(
-                    name=node.name,
-                    kind="class",
-                    signature=signature,
-                    start_line=node.lineno,
-                    end_line=node.end_lineno or node.lineno,
-                    docstring=docstring,
-                ))
-            
+
+                result.symbols.append(
+                    Symbol(
+                        name=node.name,
+                        kind="class",
+                        signature=signature,
+                        start_line=node.lineno,
+                        end_line=node.end_lineno or node.lineno,
+                        docstring=docstring,
+                    )
+                )
+
             elif isinstance(node, ast.Import):
                 for alias in node.names:
                     result.imports.append(alias.name)
-            
+
             elif isinstance(node, ast.ImportFrom):
                 module = node.module or ""
                 for alias in node.names:
                     result.imports.append(f"{module}.{alias.name}")
-            
+
             elif isinstance(node, ast.Call):
                 if isinstance(node.func, ast.Name):
                     result.calls.append(node.func.id)
                 elif isinstance(node.func, ast.Attribute):
                     result.calls.append(node.func.attr)
-    
+
     except SyntaxError as e:
         result.errors.append(f"Syntax error: {e}")
     except Exception as e:
         result.errors.append(f"Analysis error: {e}")
-    
+
     # Dedupe calls
     result.calls = list(set(result.calls))
-    
+
     return result
 
 
@@ -210,14 +216,14 @@ def analyze_file(path: Path) -> AnalysisResult | None:
     """Analyze a source file and extract symbols, imports, calls."""
     if not path.exists() or not path.is_file():
         return None
-    
+
     ext = path.suffix.lower()
-    
+
     # Currently only Python has full analysis
     if ext == ".py":
         content = path.read_text(errors="ignore")
         return analyze_python(content, str(path))
-    
+
     # For other languages, return basic info (tree-sitter can be added later)
     if ext in LANGUAGE_CONFIGS:
         return AnalysisResult(
@@ -225,7 +231,7 @@ def analyze_file(path: Path) -> AnalysisResult | None:
             language=LANGUAGE_CONFIGS[ext]["language"],
             errors=["Full analysis not yet implemented for this language"],
         )
-    
+
     return None
 
 

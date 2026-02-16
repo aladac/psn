@@ -48,7 +48,7 @@ def track_read() -> None:
         data = json.load(sys.stdin)
         session_id = data.get("session_id", "unknown")
         file_path = data.get("tool_input", {}).get("file_path")
-        
+
         if file_path:
             context = load_context(session_id)
             if file_path not in context["files"]:
@@ -70,14 +70,14 @@ def check(
             sessions = sorted(CONTEXT_DIR.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True)
             if sessions:
                 session_id = sessions[0].stem
-    
+
     if session_id is None:
         console.print("[yellow]No session found[/yellow]")
         raise typer.Exit(1)
-    
+
     context = load_context(session_id)
     abs_path = str(Path(file_path).resolve())
-    
+
     if abs_path in context["files"] or file_path in context["files"]:
         console.print(f"[green]✓[/green] {file_path} is in context")
     else:
@@ -95,13 +95,13 @@ def list_files(
             sessions = sorted(CONTEXT_DIR.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True)
             if sessions:
                 session_id = sessions[0].stem
-    
+
     if session_id is None:
         console.print("[yellow]No session found[/yellow]")
         raise typer.Exit(0)
-    
+
     context = load_context(session_id)
-    
+
     if not context["files"]:
         console.print("[dim]No files in context[/dim]")
     else:
@@ -120,7 +120,7 @@ def clear(
             sessions = sorted(CONTEXT_DIR.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True)
             if sessions:
                 session_id = sessions[0].stem
-    
+
     if session_id:
         session_file = get_session_file(session_id)
         if session_file.exists():
