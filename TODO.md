@@ -6,10 +6,10 @@
 - [x] Step 1.3: Add Persona CLI Commands (list, show, validate)
 
 ## Phase 2: Cartridge System
-- [ ] Step 2.1: Define Pcart Schema (PersonaConfig, PreferencesConfig, Cartridge)
-- [ ] Step 2.2: Implement Cart Manager (load/save zip files)
-- [ ] Step 2.3: Implement Cart Registry (track available/active carts)
-- [ ] Step 2.4: Add Cart CLI Commands (list, create, switch, show)
+- [x] Step 2.1: Define Pcart Schema (PersonaConfig, PreferencesConfig, Cartridge)
+- [x] Step 2.2: Implement Cart Manager (load/save zip files)
+- [x] Step 2.3: Implement Cart Registry (track available/active carts)
+- [x] Step 2.4: Add Cart CLI Commands (list, create, switch, show)
 
 ## Phase 3: Persona Builder
 - [ ] Step 3.1: Implement Persona Builder (memories → instruction prompt)
@@ -39,4 +39,4 @@
 
 ---
 
-**Total:** 3/22 steps completed
+**Total:** 7/22 steps completed

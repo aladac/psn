@@ -4,7 +4,7 @@ import typer
 from rich.console import Console
 
 from personality import __version__
-from personality.cli import context, hooks, index, memory, persona, tts
+from personality.cli import cart, context, hooks, index, memory, persona, tts
 
 app = typer.Typer(
     name="psn",
@@ -19,6 +19,7 @@ app.add_typer(index.app, name="index", help="Code indexing")
 app.add_typer(memory.app, name="memory", help="Memory management")
 app.add_typer(tts.app, name="tts", help="Text-to-speech")
 app.add_typer(persona.app, name="persona", help="Persona training files")
+app.add_typer(cart.app, name="cart", help="Cartridge management")
 
 
 def version_callback(value: bool) -> None:

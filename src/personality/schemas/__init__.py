@@ -1,5 +1,13 @@
 """Pydantic schemas for personality plugin."""
 
+from personality.schemas.pcart import (
+    CartManifest,
+    Cartridge,
+    IdentityConfig,
+    PersonaConfig,
+    PreferencesConfig,
+    TTSConfig,
+)
 from personality.schemas.training import (
     TrainingDocument,
     TrainingMemory,
@@ -7,7 +15,15 @@ from personality.schemas.training import (
 )
 
 __all__ = [
+    # Training
     "TrainingDocument",
     "TrainingMemory",
     "TrainingResult",
+    # Pcart
+    "CartManifest",
+    "Cartridge",
+    "IdentityConfig",
+    "PersonaConfig",
+    "PreferencesConfig",
+    "TTSConfig",
 ]

@@ -43,6 +43,9 @@ htmlcov/
 .claude/*.local.md
 *.local.json
 
+# Generated carts
+carts/
+
 # OS
 .DS_Store
 Thumbs.db

@@ -29,9 +29,10 @@ def speak(
 ) -> None:
     """Speak text aloud."""
     try:
-        from piper import PiperVoice
-        import wave
         import tempfile
+        import wave
+
+        from piper import PiperVoice
 
         model_path = VOICES_DIR / f"{voice}.onnx"
         config_path = VOICES_DIR / f"{voice}.onnx.json"
@@ -54,10 +55,10 @@ def speak(
     except ImportError:
         console.print("[red]piper-tts not installed[/red]")
         console.print("Run: pip install piper-tts")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
     except Exception as e:
         console.print(f"[red]Error: {e}[/red]")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
 
 
 @app.command("voices")
@@ -99,7 +100,7 @@ def download_voice(
         return
 
     # Piper voices URL pattern
-    base_url = f"https://huggingface.co/rhasspy/piper-voices/resolve/main"
+    base_url = "https://huggingface.co/rhasspy/piper-voices/resolve/main"
 
     # Parse voice name: lang_REGION-name-quality
     parts = voice.split("-")
@@ -123,10 +124,10 @@ def download_voice(
 
         console.print(f"  [dim]{model_url}[/dim]")
         urllib.request.urlretrieve(model_url, model_path)
-        console.print(f"  [green]✓[/green] Model downloaded")
+        console.print("  [green]✓[/green] Model downloaded")
 
         urllib.request.urlretrieve(config_url, config_path)
-        console.print(f"  [green]✓[/green] Config downloaded")
+        console.print("  [green]✓[/green] Config downloaded")
 
         size_mb = model_path.stat().st_size / (1024 * 1024)
         console.print(f"\n[green]Installed:[/green] {voice} ({size_mb:.1f} MB)")
@@ -135,7 +136,7 @@ def download_voice(
         console.print(f"[red]Download failed: {e}[/red]")
         model_path.unlink(missing_ok=True)
         config_path.unlink(missing_ok=True)
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
 
 
 @app.command("test")

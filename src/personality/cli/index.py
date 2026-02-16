@@ -2,7 +2,7 @@
 
 import json
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import typer
@@ -86,12 +86,12 @@ def index_file(
     """Index a single file with optional AST analysis."""
     if not file_path:
         console.print("[red]File path required[/red]")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
 
     path = Path(file_path)
     if not path.exists():
         console.print(f"[red]File not found: {file_path}[/red]")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
 
     try:
         indexer = get_indexer()
@@ -200,7 +200,7 @@ def index_file(
 
     except Exception as e:
         console.print(f"[red]Error: {e}[/red]")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
 
 
 @app.command("hook")
@@ -355,7 +355,7 @@ def show_deps(
         sql = f"SELECT DISTINCT callee FROM calls WHERE source_path = '{path}'"
         result = indexer.run_psql(sql)
 
-        console.print(f"\n[bold]Function calls:[/bold]")
+        console.print("\n[bold]Function calls:[/bold]")
         if result.get("success") and result.get("stdout"):
             for line in result["stdout"].strip().split("\n"):
                 if line:
@@ -453,7 +453,7 @@ def show_diff(
 
             str_path = str(file_path)
             current_files.add(str_path)
-            mtime = datetime.fromtimestamp(file_path.stat().st_mtime, tz=timezone.utc)
+            mtime = datetime.fromtimestamp(file_path.stat().st_mtime, tz=UTC)
 
             # Check if in index
             indexed = indexed_code if file_path.suffix.lower() in indexer.CODE_EXTENSIONS else indexed_docs
@@ -467,7 +467,7 @@ def show_diff(
                     try:
                         # Parse PostgreSQL timestamp
                         indexed_at = datetime.fromisoformat(indexed_at_str.replace(" ", "T").split(".")[0])
-                        indexed_at = indexed_at.replace(tzinfo=timezone.utc)
+                        indexed_at = indexed_at.replace(tzinfo=UTC)
                         if mtime > indexed_at:
                             modified_files.append(str_path)
                     except (ValueError, TypeError):
@@ -513,7 +513,7 @@ def show_diff(
 
     except Exception as e:
         console.print(f"[red]Error: {e}[/red]")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
 
 
 @app.command("sync")
@@ -555,7 +555,7 @@ def sync_index(
                 continue
 
             str_path = str(file_path)
-            mtime = datetime.fromtimestamp(file_path.stat().st_mtime, tz=timezone.utc)
+            mtime = datetime.fromtimestamp(file_path.stat().st_mtime, tz=UTC)
 
             if str_path not in indexed:
                 to_index.append(file_path)
@@ -564,7 +564,7 @@ def sync_index(
                 if indexed_at_str:
                     try:
                         indexed_at = datetime.fromisoformat(indexed_at_str.replace(" ", "T").split(".")[0])
-                        indexed_at = indexed_at.replace(tzinfo=timezone.utc)
+                        indexed_at = indexed_at.replace(tzinfo=UTC)
                         if mtime > indexed_at:
                             to_index.append(file_path)
                     except (ValueError, TypeError):
@@ -658,4 +658,4 @@ def sync_index(
 
     except Exception as e:
         console.print(f"[red]Error: {e}[/red]")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
