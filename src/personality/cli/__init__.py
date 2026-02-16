@@ -9,7 +9,7 @@ from personality.cli import hooks
 app = typer.Typer(
     name="psn",
     help="Personality - Infrastructure layer for Claude Code",
-    no_args_is_help=True,
+    invoke_without_command=True,
 )
 console = Console()
 
@@ -22,8 +22,9 @@ def version_callback(value: bool) -> None:
         raise typer.Exit()
 
 
-@app.callback()
+@app.callback(invoke_without_command=True)
 def main(
+    ctx: typer.Context,
     version: bool = typer.Option(
         False,
         "--version",
@@ -34,7 +35,9 @@ def main(
     ),
 ) -> None:
     """Personality CLI."""
-    pass
+    if ctx.invoked_subcommand is None:
+        console.print(ctx.get_help())
+        raise typer.Exit(0)
 
 
 @app.command()

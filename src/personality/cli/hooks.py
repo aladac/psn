@@ -3,12 +3,20 @@
 import typer
 from rich.console import Console
 
-app = typer.Typer(no_args_is_help=True)
+app = typer.Typer(invoke_without_command=True)
 console = Console()
 
 
+@app.callback(invoke_without_command=True)
+def hooks_main(ctx: typer.Context) -> None:
+    """Claude Code hooks management."""
+    if ctx.invoked_subcommand is None:
+        console.print(ctx.get_help())
+        raise typer.Exit(0)
+
+
 # Pre-tool-use hook
-pre_tool_use_app = typer.Typer(help="Pre-tool-use hook")
+pre_tool_use_app = typer.Typer(help="Pre-tool-use hook", invoke_without_command=True)
 app.add_typer(pre_tool_use_app, name="pre-tool-use")
 
 
