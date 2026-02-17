@@ -217,7 +217,7 @@ After fixing, run full coverage to verify. Target: 91% on testable code.
 
 ## Dioxus Inspector (MCP Debugging)
 
-The `dioxus-inspector` crate enables Claude Code to debug Dioxus Desktop apps via MCP. This is maintained at `~/Projects/dioxus-inspector`.
+The `dioxus-inspector` crate (v0.1.2) enables Claude Code to debug Dioxus Desktop apps via MCP. Maintained at `~/Projects/dioxus-inspector`.
 
 ### Integration Pattern
 
@@ -227,7 +227,7 @@ The `dioxus-inspector` crate enables Claude Code to debug Dioxus Desktop apps vi
 desktop = ["dioxus/desktop", "dioxus-inspector"]
 
 [dependencies]
-dioxus-inspector = { version = "0.1", optional = true }
+dioxus-inspector = { version = "0.1.2", optional = true }
 ```
 
 **2. Embed the bridge** (main.rs):
@@ -258,6 +258,11 @@ fn app() -> Element {
 }
 ```
 
+**Key API:**
+- `start_bridge(port, app_name)` → Returns `mpsc::Receiver<EvalCommand>`
+- `EvalCommand` contains `script: String` and `response_tx: oneshot::Sender<EvalResponse>`
+- `EvalResponse::success(result)` / `EvalResponse::error(msg)`
+
 **3. Configure MCP server** (`.mcp.json` in project root):
 ```json
 {
@@ -281,20 +286,32 @@ When connected, Claude Code gains these tools via `mcp__dioxus__*`:
 | `query_text` | Get element text by selector |
 | `query_html` | Get innerHTML by selector |
 | `query_all` | List elements matching selector |
-| `click` | Click element |
-| `type_text` | Type into input |
+| `click` | Click element by selector |
+| `type_text` | Type into input field |
 | `eval` | Execute JavaScript in webview |
 | `inspect` | Element visibility analysis |
 | `diagnose` | Quick UI health check |
 | `screenshot` | Capture window (macOS only) |
-| `resize` | Resize window |
+| `resize` | Resize window dimensions |
 | `dom_to_rsx` | Convert HTML to RSX via `dx translate` |
 | `doctor` | Run `dx doctor` |
 | `check` | Run `dx check` |
 
+### HTTP Bridge Endpoints
+
+The embedded bridge exposes these endpoints on `http://127.0.0.1:{port}`:
+- `GET /status` - App info (name, PID, uptime)
+- `POST /eval` - Execute JS script
+- `POST /query` - Query elements (text/html/all)
+- `GET /dom` - Get simplified DOM tree
+- `POST /inspect` - Visibility analysis
+- `GET /diagnose` - UI health diagnostics
+- `POST /screenshot` - Window capture
+- `POST /resize` - Window resize
+
 ### Example Project
 
-See `~/Projects/tengu-desktop` for a complete implementation using dioxus-inspector.
+See `~/Projects/tengu-desktop` for a complete implementation using dioxus-inspector with the pattern above.
 
 ## When You Need Clarification
 
