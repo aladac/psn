@@ -196,7 +196,7 @@ After component creation or changes:
 
 - **Local Marketplace**: `/Users/chi/Projects/claude-plugins` - User's local plugin marketplace for development and distribution
 - **Claude Config**: `~/.claude` → `/Users/chi/Projects/claude` - Symlinked Claude Code configuration
-- **PSN Plugin**: `/Users/chi/Projects/psn` - This plugin's source repository
+- **PSN Plugin**: `/Users/chi/Projects/psn` - This plugin's source repository (installed via Homebrew)
 
 ## Installing from Local Marketplace
 
@@ -209,6 +209,59 @@ Or directly:
 ```bash
 claude plugin install /Users/chi/Projects/claude-plugins/<plugin-name>
 ```
+
+# CRITICAL: Testing PSN Plugin Changes
+
+**DO NOT attempt to test plugin changes immediately after making them.**
+
+The PSN plugin is installed via Homebrew and distributed through the local marketplace. Changes to the source code in `/Users/chi/Projects/psn` are NOT reflected until the full reinstall workflow is completed.
+
+## Required Workflow for Testing Changes
+
+After making ANY changes to PSN plugin code (agents, skills, commands, hooks, MCP servers):
+
+### Step 1: Rebuild via Homebrew
+```bash
+brew reinstall psn
+```
+This compiles and installs the latest source code.
+
+### Step 2: Update Marketplace Manifests
+```bash
+/plugins:marketplace-update
+```
+This refreshes the plugin manifests from the local marketplace.
+
+### Step 3: Update/Reinstall the Plugin
+```bash
+/plugins:update psn
+```
+Or if needed:
+```bash
+claude plugin uninstall psn && claude plugin install local:psn
+```
+
+### Step 4: Request User Restart
+**ALWAYS tell the user:**
+> "To test these changes, please restart Claude Code. The changes won't take effect until you restart."
+
+## Why This Matters
+
+- Source changes in `/Users/chi/Projects/psn` are just source code
+- Homebrew builds and installs the binary/package
+- The marketplace distributes the plugin to Claude Code
+- Claude Code loads plugins at startup, not dynamically
+
+## Quick Reference
+
+| Change Type | Requires Brew Reinstall | Requires Restart |
+|-------------|------------------------|------------------|
+| Agent/Skill/Command content | Yes | Yes |
+| MCP server config | Yes | Yes |
+| Hook code | Yes | Yes |
+| plugin.json | Yes | Yes |
+
+**NEVER say "let me test this" or "I'll verify this works" after making changes.** Instead, guide the user through the reinstall workflow and ask them to restart.
 
 # Plugin Structure Expertise
 
