@@ -16,7 +16,7 @@ app = typer.Typer(
 console = Console()
 
 # Server registry - maps names to their module paths
-SERVERS_DIR = Path(__file__).parent.parent.parent.parent / "servers"
+SERVERS_DIR = Path(__file__).parent.parent / "servers"
 AVAILABLE_SERVERS = {
     "tts": SERVERS_DIR / "tts.py",
     "ollama": SERVERS_DIR / "ollama.py",
