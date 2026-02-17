@@ -41,3 +41,9 @@ Indexing ~/Projects/api as 'my-api'...
 
 Use `/index:search <query>` to search.
 ```
+
+## Related
+- **Skill**: `Skill(skill: "psn:indexer")` - Indexing best practices
+- **Agent**: `psn:code-analyzer` - Deep code analysis
+- **Commands**: `/index:docs`, `/index:status`
+- **Tools used**: `mcp__indexer__index_code`, `mcp__indexer__status`, `Glob`

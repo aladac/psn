@@ -39,3 +39,8 @@ Memories in 'user.preferences':
   2. user.preferences.editor - "uses neovim"
   3. user.preferences.terminal - "kitty with fish shell"
 ```
+
+## Related
+- **Skill**: `Skill(skill: "psn:memory")` - Memory patterns
+- **Agent**: `psn:memory-curator` - Memory organization
+- **Commands**: `/memory:store`, `/memory:recall`

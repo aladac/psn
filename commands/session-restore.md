@@ -28,3 +28,8 @@ Restore a previously saved conversation session.
 User: `/session:restore morning-work`
 
 Response: "Session 'morning-work' restored. You were working on the API refactor in ~/Projects/api. Last task: implementing pagination. Continue?"
+
+## Related
+- **Skill**: `Skill(skill: "psn:session")` - Session management patterns
+- **Commands**: `/session:save`
+- **Tools used**: `mcp__memory__recall`, `mcp__memory__search`, `Read`

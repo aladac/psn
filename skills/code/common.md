@@ -2,6 +2,25 @@
 description: 'Use for cross-language coding best practices, design patterns, and principles that apply to Ruby, Rust, Python, and TypeScript.'
 ---
 
+# Tools Reference
+
+## Built-in Tools
+| Tool | Purpose |
+|------|---------|
+| `Read` | Read source files for analysis |
+| `Write` | Create new source files |
+| `Edit` | Modify existing code |
+| `Glob` | Find source files by pattern |
+| `Grep` | Search code for patterns |
+| `Bash` | Run linters, formatters, tests |
+
+## Related Skills
+- Language-specific: `psn:code:ruby`, `psn:code:rust`, `psn:code:python`, `psn:code:typescript`
+- Testing: `psn:code:*-test` skills
+- Tooling: `psn:code:*-tooling` skills
+
+---
+
 # Common Coding Practices
 
 Cross-language patterns that improve readability and maintainability.

@@ -31,3 +31,8 @@ Save the current conversation session for later restoration.
 User: `/session:save morning-work`
 
 Response: "Session 'morning-work' saved. Use `/session:restore morning-work` to continue later."
+
+## Related
+- **Skill**: `Skill(skill: "psn:session")` - Session management patterns
+- **Commands**: `/session:restore`
+- **Tools used**: `mcp__memory__store`, `Read`, `Bash`

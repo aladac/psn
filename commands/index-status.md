@@ -38,3 +38,9 @@ Doc Index:
 
 Total: 393 chunks across 2 projects
 ```
+
+## Related
+- **Skill**: `Skill(skill: "psn:indexer")` - Indexing best practices
+- **Agent**: `psn:code-analyzer` - Deep code analysis
+- **Commands**: `/index:code`, `/index:docs`
+- **Tools used**: `mcp__indexer__status`

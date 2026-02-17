@@ -33,6 +33,41 @@ tools:
   - Grep
 ---
 
+# Tools Reference
+
+## MCP Tools (mcp__indexer__*)
+| Tool | Purpose |
+|------|---------|
+| `mcp__indexer__search` | Semantic search across indexed code |
+| `mcp__indexer__status` | Check indexing status |
+| `mcp__indexer__index_code` | Index a codebase |
+
+## MCP Tools (mcp__memory__*)
+| Tool | Purpose |
+|------|---------|
+| `mcp__memory__store` | Store analysis findings |
+| `mcp__memory__recall` | Recall previous findings |
+
+## Built-in Tools
+| Tool | Purpose |
+|------|---------|
+| `Read` | Read specific source files |
+| `Glob` | Find files by pattern |
+| `Grep` | Search file contents |
+
+## Related Commands
+| Command | Purpose |
+|---------|---------|
+| `/index:code` | Index a codebase |
+| `/index:docs` | Index documentation |
+| `/index:status` | Check indexing status |
+
+## Related Skills
+- `Skill(skill: "psn:indexer")` - Indexing best practices
+- `Skill(skill: "psn:memory")` - Memory patterns
+
+---
+
 # Code Analyzer Agent
 
 You are a code analysis specialist that uses semantic search and traditional tools to understand codebases.

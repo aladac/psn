@@ -2,6 +2,27 @@
 description: 'Use when writing Rust code, implementing Rust features, or needing Rust best practices and idioms.'
 ---
 
+# Tools Reference
+
+## Built-in Tools
+| Tool | Purpose |
+|------|---------|
+| `Read` | Read .rs files |
+| `Write` | Create new Rust files |
+| `Edit` | Modify Rust code |
+| `Bash` | Run `cargo`, `rustc`, `clippy`, `rustfmt` |
+| `Glob` | Find Rust files (*.rs) |
+| `Grep` | Search Rust code |
+
+## Related Skills
+- `psn:code:rust-cli` - Clap CLI development
+- `psn:code:rust-test` - Rust testing
+- `psn:code:rust-dioxus` - Dioxus GUI development
+- `psn:code:rust-tooling` - Lint/format/typecheck
+- `psn:code:rust-validate` - Full validation workflow
+
+---
+
 # Rust Coding Practices
 
 Modern Rust idioms focused on safety, performance, and clarity.

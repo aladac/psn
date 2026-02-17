@@ -34,3 +34,8 @@ Use dot notation for hierarchical subjects:
 User: `/memory:store user.preferences.theme dark mode preferred`
 
 Response: "Stored in memory under 'user.preferences.theme' (id: abc123)"
+
+## Related
+- **Skill**: `Skill(skill: "psn:memory")` - Memory patterns and conventions
+- **Agent**: `psn:memory-curator` - Memory cleanup and organization
+- **Commands**: `/memory:recall`, `/memory:search`

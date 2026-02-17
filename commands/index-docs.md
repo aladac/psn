@@ -37,3 +37,9 @@ Indexing documentation in ~/Projects/api/docs...
 
 Use `/index:search <query>` to search.
 ```
+
+## Related
+- **Skill**: `Skill(skill: "psn:indexer")` - Indexing best practices
+- **Agent**: `psn:code-analyzer` - Deep code analysis
+- **Commands**: `/index:code`, `/index:status`
+- **Tools used**: `mcp__indexer__index_docs`, `mcp__indexer__status`, `Glob`

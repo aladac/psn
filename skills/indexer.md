@@ -4,6 +4,29 @@ description: Use this skill when analyzing code semantically, searching indexed 
 version: 1.0.0
 ---
 
+# Tools Reference
+
+## MCP Tools (mcp__indexer__*)
+| Tool | Purpose |
+|------|---------|
+| `mcp__indexer__index_code` | Index source code files |
+| `mcp__indexer__index_docs` | Index documentation |
+| `mcp__indexer__search` | Semantic search indexed content |
+| `mcp__indexer__status` | Check indexing status |
+| `mcp__indexer__clear` | Clear index for project |
+
+## Related Commands
+| Command | Purpose |
+|---------|---------|
+| `/index:code` | Index a codebase |
+| `/index:docs` | Index documentation |
+| `/index:status` | Show indexing status |
+
+## Related Agents
+- `psn:code-analyzer` - Deep code analysis with indexer
+
+---
+
 # Code Analysis
 
 Guidance for semantic code analysis using the indexer.

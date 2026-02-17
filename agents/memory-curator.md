@@ -30,6 +30,30 @@ tools:
   - mcp__memory__store
 ---
 
+# Tools Reference
+
+## MCP Tools (mcp__memory__*)
+| Tool | Purpose |
+|------|---------|
+| `mcp__memory__list` | List all memory subjects |
+| `mcp__memory__search` | Search by subject |
+| `mcp__memory__recall` | Semantic search memories |
+| `mcp__memory__forget` | Delete a memory |
+| `mcp__memory__store` | Store/update memory |
+
+## Related Commands
+| Command | Purpose |
+|---------|---------|
+| `/memory:store` | Store new memory |
+| `/memory:recall` | Recall memories |
+| `/memory:search` | Search by subject |
+
+## Related Skills
+- `Skill(skill: "psn:memory")` - Memory patterns and conventions
+- `Skill(skill: "psn:session")` - Session save/restore
+
+---
+
 # Memory Curator Agent
 
 You are a memory curator responsible for organizing and maintaining the personality memory system.

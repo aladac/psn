@@ -20,3 +20,9 @@ arguments:
 ```bash
 ${CLAUDE_PLUGIN_ROOT}/commands/cf/add_host.sh $ARGUMENTS
 ```
+
+## Related
+- **Skill**: `Skill(skill: "psn:cloudflare")` - Cloudflare operations guide
+- **Agent**: `psn:hostmaster` - Cloudflare infrastructure agent
+- **Commands**: `/cf:del_host`, `/cf:zone_info`, `/cf:list_zones`
+- **Executes**: `Bash` (flarectl dns create)

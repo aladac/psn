@@ -2,6 +2,39 @@
 description: 'Use this skill when working with Cloudflare DNS, Tunnels, Pages, or Workers. Triggers on questions about DNS records, tunnel management, static site deployment, or serverless workers.'
 ---
 
+# Tools Reference
+
+## Built-in Tools
+| Tool | Purpose |
+|------|---------|
+| `Bash` | Execute flarectl, cloudflared, wrangler commands |
+| `Read` | Read config files (wrangler.toml, config.yml) |
+| `Write` | Create/update config files |
+| `Edit` | Modify existing configs |
+
+## Related Commands (psn:cf:*)
+| Command | Purpose |
+|---------|---------|
+| `/cf:list_zones` | List all zones |
+| `/cf:zone_info` | Zone details |
+| `/cf:add_host` | Add DNS record |
+| `/cf:del_host` | Delete DNS record |
+| `/cf:list_tunnels` | List tunnels |
+| `/cf:add_tunnel` | Create tunnel |
+| `/cf:del_tunnel` | Delete tunnel |
+| `/cf:tunnel_info` | Tunnel details |
+| `/cf:pages_list` | List Pages projects |
+| `/cf:pages_deploy` | Deploy to Pages |
+| `/cf:pages_destroy` | Delete project |
+| `/cf:workers_list` | List Workers |
+| `/cf:worker_info` | Worker details |
+| `/cf:worker` | Worker operations |
+
+## Related Agents
+- `psn:hostmaster` - Cloudflare infrastructure agent
+
+---
+
 # Cloudflare Operations
 
 Comprehensive guide for Cloudflare infrastructure management.

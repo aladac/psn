@@ -2,6 +2,34 @@
 description: 'Use this skill when saving or restoring conversation sessions, managing session state, or resuming previous work. Triggers on questions about saving progress, restoring context, or continuing where left off.'
 ---
 
+# Tools Reference
+
+## MCP Tools (mcp__memory__*)
+Sessions use the memory system:
+| Tool | Purpose |
+|------|---------|
+| `mcp__memory__store` | Save session state |
+| `mcp__memory__recall` | Find sessions by query |
+| `mcp__memory__search` | List sessions by subject |
+| `mcp__memory__forget` | Delete old sessions |
+
+## Built-in Tools
+| Tool | Purpose |
+|------|---------|
+| `Bash` | Get git branch, working directory |
+| `Read` | Read recent files for context |
+
+## Related Commands
+| Command | Purpose |
+|---------|---------|
+| `/session:save` | Save current session |
+| `/session:restore` | Restore a session |
+
+## Related Skills
+- `Skill(skill: "psn:memory")` - Memory patterns
+
+---
+
 # Session Management
 
 Save and restore conversation sessions for seamless work continuity.

@@ -4,6 +4,29 @@ description: Use this skill when working with persistent memory, storing informa
 version: 1.0.0
 ---
 
+# Tools Reference
+
+## MCP Tools (mcp__memory__*)
+| Tool | Purpose |
+|------|---------|
+| `mcp__memory__store` | Store a memory with subject and content |
+| `mcp__memory__recall` | Semantic search for memories |
+| `mcp__memory__search` | Search by subject pattern |
+| `mcp__memory__forget` | Delete a memory by ID |
+| `mcp__memory__list` | List all memory subjects |
+
+## Related Commands
+| Command | Purpose |
+|---------|---------|
+| `/memory:store` | Store new memory |
+| `/memory:recall` | Recall memories |
+| `/memory:search` | Search by subject |
+
+## Related Agents
+- `psn:memory-curator` - Memory cleanup and organization
+
+---
+
 # Memory Patterns
 
 Guidance for effective use of the personality memory system.

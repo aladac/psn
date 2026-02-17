@@ -2,6 +2,26 @@
 description: 'Use when writing TypeScript code, implementing TypeScript features, or needing TypeScript best practices and idioms.'
 ---
 
+# Tools Reference
+
+## Built-in Tools
+| Tool | Purpose |
+|------|---------|
+| `Read` | Read .ts files |
+| `Write` | Create new TypeScript files |
+| `Edit` | Modify TypeScript code |
+| `Bash` | Run `tsc`, `npm`, `npx`, `vitest`, `eslint`, `prettier` |
+| `Glob` | Find TypeScript files (*.ts) |
+| `Grep` | Search TypeScript code |
+
+## Related Skills
+- `psn:code:typescript-cli` - Commander.js CLI development
+- `psn:code:typescript-test` - Vitest testing
+- `psn:code:typescript-tooling` - Lint/format/typecheck
+- `psn:code:typescript-validate` - Full validation workflow
+
+---
+
 # TypeScript Coding Practices
 
 Modern TypeScript idioms focused on type safety and readability.

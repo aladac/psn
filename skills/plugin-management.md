@@ -2,6 +2,39 @@
 description: 'Use this skill when managing Claude Code plugins: installing, updating, listing, or working with marketplaces. Triggers on questions about plugin installation, plugin updates, marketplace management, or plugin troubleshooting.'
 ---
 
+# Tools Reference
+
+## Built-in Tools
+| Tool | Purpose |
+|------|---------|
+| `Bash` | Execute `claude plugin` CLI commands |
+| `Read` | Read plugin.json, settings.json |
+| `Write` | Create plugin files |
+| `Glob` | Find plugin components |
+
+## Related Commands
+| Command | Purpose |
+|---------|---------|
+| `/plugins:list` | List installed plugins |
+| `/plugins:install` | Install a plugin |
+| `/plugins:update` | Update plugins |
+| `/plugins:marketplace-update` | Refresh manifests |
+
+## Related Skills (plugin-dev:*)
+| Skill | Purpose |
+|-------|---------|
+| `plugin-dev:plugin-structure` | Directory layout |
+| `plugin-dev:agent-development` | Creating agents |
+| `plugin-dev:skill-development` | Creating skills |
+| `plugin-dev:command-development` | Creating commands |
+| `plugin-dev:hook-development` | Creating hooks |
+| `plugin-dev:mcp-integration` | Adding MCP servers |
+
+## Related Agents
+- `psn:claude-admin` - Plugin configuration and development
+
+---
+
 # Plugin Management
 
 Comprehensive guide for managing Claude Code plugins.

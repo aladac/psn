@@ -34,3 +34,8 @@ Found 1 relevant memory:
    "dark mode preferred"
    Similarity: 0.92
 ```
+
+## Related
+- **Skill**: `Skill(skill: "psn:memory")` - Memory patterns
+- **Agent**: `psn:memory-curator` - Memory organization
+- **Commands**: `/memory:store`, `/memory:search`

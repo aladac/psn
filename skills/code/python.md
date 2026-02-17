@@ -2,6 +2,28 @@
 description: 'Use when writing Python code, implementing Python features, or needing Python best practices and idioms.'
 ---
 
+# Tools Reference
+
+## Built-in Tools
+| Tool | Purpose |
+|------|---------|
+| `Read` | Read .py files |
+| `Write` | Create new Python files |
+| `Edit` | Modify Python code |
+| `Bash` | Run `python`, `pytest`, `ruff`, `mypy`, `uv` |
+| `Glob` | Find Python files (*.py) |
+| `Grep` | Search Python code |
+
+## Related Skills
+- `psn:code:python-cli` - Typer CLI development
+- `psn:code:python-test` - pytest testing
+- `psn:code:python-fastapi` - FastAPI development
+- `psn:code:python-gui` - PyWebView GUI
+- `psn:code:python-tooling` - Lint/format/typecheck
+- `psn:code:python-validate` - Full validation workflow
+
+---
+
 # Python Coding Practices
 
 Modern Python idioms (3.10+) focused on readability and type safety.

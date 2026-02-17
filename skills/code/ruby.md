@@ -2,6 +2,28 @@
 description: 'Use when writing Ruby code, implementing Ruby features, or needing Ruby best practices and idioms.'
 ---
 
+# Tools Reference
+
+## Built-in Tools
+| Tool | Purpose |
+|------|---------|
+| `Read` | Read .rb files |
+| `Write` | Create new Ruby files |
+| `Edit` | Modify Ruby code |
+| `Bash` | Run `bundle`, `ruby`, `rspec`, `standardrb`, `srb` |
+| `Glob` | Find Ruby files (*.rb) |
+| `Grep` | Search Ruby code |
+
+## Related Skills
+- `psn:code:ruby-cli` - Thor CLI development
+- `psn:code:ruby-test` - RSpec testing
+- `psn:code:ruby-rails` - Rails API development
+- `psn:code:ruby-gem` - Gem development
+- `psn:code:ruby-tooling` - Lint/format/typecheck
+- `psn:code:ruby-validate` - Full validation workflow
+
+---
+
 # Ruby Coding Practices
 
 Modern Ruby idioms focused on readability and maintainability.
