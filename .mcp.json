@@ -30,8 +30,7 @@
       "args": ["mcp", "postgres"],
       "env": {
         "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin",
-        "JUNKPILE_HOST": "junkpile",
-        "SSH_KEY": "/Users/chi/.ssh/id_ed25519",
+        "PG_HOST": "localhost",
         "PG_DATABASE": "personality"
       }
     },
@@ -47,7 +46,9 @@
       "args": ["mcp", "memory"],
       "env": {
         "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin",
-        "EMBEDDING_MODEL": "nomic-ai/nomic-embed-text-v1.5"
+        "EMBEDDING_MODEL": "nomic-ai/nomic-embed-text-v1.5",
+                "PG_HOST": "localhost",
+        "PG_DATABASE": "personality"
       }
     },
     "indexer": {
@@ -55,7 +56,9 @@
       "args": ["mcp", "indexer"],
       "env": {
         "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin",
-        "EMBEDDING_MODEL": "nomic-ai/nomic-embed-text-v1.5"
+        "EMBEDDING_MODEL": "nomic-ai/nomic-embed-text-v1.5",
+                "PG_HOST": "localhost",
+        "PG_DATABASE": "personality"
       }
     },
     "tts": {
