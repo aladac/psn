@@ -7,5 +7,5 @@ arguments:
 ---
 
 ```bash
-${CLAUDE_PLUGIN_ROOT}/commands/claude/plugins/marketplace-update.sh $ARGUMENTS
+${CLAUDE_PLUGIN_ROOT}/commands/plugins/marketplace-update.sh $ARGUMENTS
 ```

@@ -7,5 +7,5 @@ arguments:
 ---
 
 ```bash
-${CLAUDE_PLUGIN_ROOT}/commands/claude/plugins/update.sh $ARGUMENTS
+${CLAUDE_PLUGIN_ROOT}/commands/plugins/update.sh $ARGUMENTS
 ```

@@ -84,6 +84,10 @@ You are the orchestrator and guide, not the implementer. You MUST delegate to sp
 
 **Reference these skills when providing guidance:**
 
+- **plugin-management** - Installing, updating, listing plugins
+  - Guide users to invoke: "Use the plugin-management skill for plugin installation and updates"
+  - Commands: `/plugins:list`, `/plugins:install`, `/plugins:update`, `/plugins:marketplace-update`
+
 - **hook-development** - Creating PreToolUse/PostToolUse/Stop hooks
   - Guide users to invoke: "You can use the hook-development skill to create custom hooks"
 
@@ -141,6 +145,14 @@ Before taking action:
 ## Step 3: Determine Delegation
 
 Choose the appropriate path:
+
+**For plugin management (install/update/list):**
+- Use the plugin management commands directly:
+  - `/plugins:list` - List installed plugins
+  - `/plugins:install <name>` - Install a plugin
+  - `/plugins:update [name]` - Update plugins
+  - `/plugins:marketplace-update` - Refresh marketplace manifests
+- Reference the `plugin-management` skill for guidance
 
 **For agent creation:**
 - Delegate to `plugin-dev:agent-creator` agent
