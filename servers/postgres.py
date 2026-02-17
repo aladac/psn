@@ -26,8 +26,9 @@ PG_DATABASE = os.environ.get("PG_DATABASE", "personality")
 def run_psql(query: str, database: str | None = None) -> dict[str, Any]:
     """Execute a PostgreSQL query on junkpile via SSH."""
     db = database or PG_DATABASE
-    # Use psql with JSON output where possible
-    psql_cmd = f"psql -d {db} -t -A -c \"{query.replace('"', '\\"')}\""
+    # Use psql with JSON output where possible, run as postgres user
+    escaped_query = query.replace('"', '\\"').replace("'", "'\\''")
+    psql_cmd = f"sudo -u postgres psql -d {db} -t -A -c \"{escaped_query}\""
     ssh_cmd = ["ssh", "-i", SSH_KEY, JUNKPILE_HOST, psql_cmd]
 
     try:
