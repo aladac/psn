@@ -80,6 +80,38 @@ Use `/eval` frequently for fast feedback:
 - Use `--fail-fast` with RSpec during development
 - Run only relevant specs: `rspec spec/models/user_spec.rb`
 
+## Testing: Always with Coverage
+
+**ALWAYS run tests with coverage.** Never run tests without it - it takes the same time and provides essential metrics.
+
+```bash
+# Default command - ALWAYS use this
+bundle exec rspec --format documentation
+
+# SimpleCov auto-loads via spec_helper.rb - no extra flags needed
+# Coverage report appears at end of test run
+```
+
+**Setup (if not present):**
+```ruby
+# Gemfile
+gem 'simplecov', require: false, group: :test
+
+# spec/spec_helper.rb (at the TOP, before any other requires)
+require 'simplecov'
+SimpleCov.start 'rails' do
+  enable_coverage :branch
+  minimum_coverage 91
+end
+```
+
+**Single file debugging (only exception):**
+```bash
+rspec spec/models/user_spec.rb:42 -f d  # Line-specific, rapid iteration
+```
+
+After fixing, run full suite with coverage to verify.
+
 ## Quality Standards
 
 - Follow Ruby style guide (2 space indent, snake_case)

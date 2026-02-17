@@ -100,6 +100,47 @@ cache-dir = ".uv-cache"
 - Run specific test files: `pytest tests/test_user.py`
 - Use `mypy --install-types` once, then incremental checks
 
+## Testing: Always with Coverage
+
+**ALWAYS run tests with coverage.** Never run tests without it - it takes the same time and provides essential metrics.
+
+```bash
+# Default command - ALWAYS use this
+pytest --cov=src --cov-report=term-missing --cov-report=html
+
+# With parallel execution (faster)
+pytest --cov=src --cov-report=term-missing -n auto
+
+# Fail if coverage below threshold
+pytest --cov=src --cov-fail-under=91
+```
+
+**Setup (pyproject.toml):**
+```toml
+[tool.pytest.ini_options]
+addopts = "--cov=src --cov-report=term-missing"
+
+[tool.coverage.run]
+branch = true
+source = ["src"]
+
+[tool.coverage.report]
+fail_under = 91
+show_missing = true
+```
+
+**Dependencies:**
+```bash
+uv pip install pytest-cov pytest-xdist
+```
+
+**Single test debugging (only exception):**
+```bash
+pytest tests/test_user.py::test_specific -x -v  # Rapid iteration
+```
+
+After fixing, run full coverage to verify.
+
 ## Quality Standards
 
 - Follow PEP 8 style guide

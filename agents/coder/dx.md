@@ -176,6 +176,36 @@ index_on_404 = true
 - Use `dx check` for quick validation without full build
 - Test on web first (faster iteration), then desktop
 
+## Testing: Always with Coverage
+
+**ALWAYS run tests with coverage.** Never run tests without it - it takes the same time and provides essential metrics.
+
+```bash
+# Default command - ALWAYS use this
+cargo llvm-cov nextest
+
+# With HTML report
+cargo llvm-cov nextest --html
+
+# Show uncovered lines
+cargo llvm-cov nextest --show-missing-lines
+```
+
+**Note:** Dioxus UI testing is limited - focus coverage on:
+- Component logic (hooks, state management)
+- Data transformations
+- Event handler logic (extracted to pure functions)
+- API/service layers
+
+**For UI testing**, use the Dioxus Inspector MCP tools (below) for interactive debugging rather than automated coverage.
+
+**Single test debugging (only exception):**
+```bash
+cargo test component_logic_test -- --nocapture
+```
+
+After fixing, run full coverage to verify. Target: 91% on testable code.
+
 ## Quality Assurance
 
 - Always verify RSX syntax is valid before presenting solutions
@@ -183,6 +213,7 @@ index_on_404 = true
 - Ensure event handlers are properly typed
 - Validate cross-platform compatibility when relevant
 - Check that all imports are included
+- Test coverage above 91% on logic/service code
 
 ## Dioxus Inspector (MCP Debugging)
 

@@ -114,12 +114,68 @@ When comparing patterns:
 - Use async/await over raw promises
 - Document complex types with JSDoc
 
-## Testing
+## Testing: Always with Coverage
 
-- Unit tests with Jest or Vitest
-- Component tests with Testing Library
-- E2E tests with Playwright
-- Aim for coverage above 91%
+**ALWAYS run tests with coverage.** Never run tests without it - it takes the same time and provides essential metrics.
+
+```bash
+# Default command - ALWAYS use this (Vitest)
+pnpm vitest run --coverage
+
+# With UI report
+pnpm vitest run --coverage --reporter=html
+
+# Jest equivalent
+pnpm jest --coverage
+```
+
+**Setup (vitest.config.ts):**
+```typescript
+import { defineConfig } from 'vitest/config'
+
+export default defineConfig({
+  test: {
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'html'],
+      exclude: ['node_modules/', 'dist/', '**/*.d.ts'],
+      thresholds: {
+        statements: 91,
+        branches: 91,
+        functions: 91,
+        lines: 91
+      }
+    }
+  }
+})
+```
+
+**Dependencies:**
+```bash
+pnpm add -D @vitest/coverage-v8
+```
+
+**package.json scripts:**
+```json
+{
+  "scripts": {
+    "test": "vitest run --coverage",
+    "test:watch": "vitest --coverage"
+  }
+}
+```
+
+**Single test debugging (only exception):**
+```bash
+pnpm vitest run src/utils/specific.test.ts  # Rapid iteration
+```
+
+After fixing, run full coverage to verify.
+
+**Testing stack:**
+- Unit tests: Vitest (preferred) or Jest
+- Component tests: Testing Library
+- E2E tests: Playwright
 
 ## Common Patterns
 

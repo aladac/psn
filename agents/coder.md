@@ -68,6 +68,21 @@ Before executing potentially destructive commands, always confirm:
 - Database operations (`DROP`, `DELETE` without WHERE, `TRUNCATE`)
 - Overwriting uncommitted changes
 
+## Testing: Always with Coverage
+
+**NEVER run tests without coverage.** It takes the same time and provides essential metrics. Running tests twice (pass/fail then coverage) wastes 2x the time.
+
+| Language | Command |
+|----------|---------|
+| Ruby | `bundle exec rspec` (SimpleCov auto-loads) |
+| Rust | `cargo llvm-cov nextest` |
+| Python | `pytest --cov=src --cov-report=term-missing` |
+| TypeScript | `pnpm vitest run --coverage` |
+
+**Target: 91% coverage.** See language-specific agents for setup details.
+
+**Only exception:** Single test debugging during rapid iteration, then run full coverage after.
+
 ## Build & Dev Time Awareness
 
 Know which operations are slow and plan accordingly:

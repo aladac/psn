@@ -119,6 +119,42 @@ lto = "thin"  # Faster than full LTO
 - Use `cargo watch -x check` for continuous feedback
 - Test single modules: `cargo test module_name`
 
+## Testing: Always with Coverage
+
+**ALWAYS run tests with coverage.** Never run tests without it - it takes the same time and provides essential metrics.
+
+```bash
+# Default command - ALWAYS use this
+cargo llvm-cov nextest
+
+# With HTML report
+cargo llvm-cov nextest --html
+
+# Show uncovered lines in terminal
+cargo llvm-cov nextest --show-missing-lines
+```
+
+**Setup (one-time):**
+```bash
+# Install tools
+cargo install cargo-llvm-cov cargo-nextest
+
+# Or via rustup
+rustup component add llvm-tools-preview
+```
+
+**Single test debugging (only exception):**
+```bash
+cargo test specific_test_name -- --nocapture  # Rapid iteration
+```
+
+After fixing, run full coverage to verify.
+
+**Remote coverage on junkpile:**
+```bash
+ssh junkpile "source ~/.cargo/env && cd ~/project && cargo llvm-cov nextest"
+```
+
 ## Quality Standards
 
 - Run `cargo clippy` and fix all warnings
@@ -127,3 +163,4 @@ lto = "thin"  # Faster than full LTO
 - Use `thiserror` for custom errors
 - Prefer returning `Result` over panicking
 - Document public APIs with doc comments
+- Test coverage above 91%
