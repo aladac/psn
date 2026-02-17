@@ -126,6 +126,56 @@ script = []
 identifier = "com.example.myapp"
 ```
 
+## Build Environment
+
+**Dioxus builds happen locally only** (macOS ARM64). Unlike pure Rust CLI tools, Dioxus desktop apps target the local platform and cannot be cross-compiled to junkpile.
+
+| Target | Build Location | Notes |
+|--------|----------------|-------|
+| Web (WASM) | Local | `dx build --platform web` |
+| Desktop macOS | Local | `dx build --platform desktop` |
+| Desktop Linux | N/A | Would need Linux dev environment |
+
+**For Linux desktop builds**, consider:
+- Docker with Dioxus toolchain
+- GitHub Actions with ubuntu runner
+- VM/container development
+
+## Slow Operations & Mitigations
+
+| Task | Time | Cause |
+|------|------|-------|
+| `dx build --release` web | 2-5min | Rust compile + wasm-opt + asset bundling |
+| `dx serve` initial | 30s-2min | Full rebuild on first serve |
+| Hot reload cycle | 3-10s | Incremental Rust + WASM recompile |
+| `dx bundle` desktop | 3-10min | Native compile + app bundling per platform |
+| Tailwind JIT | 2-5s | CSS scanning on changes |
+
+**Speed up development:**
+- Use `sccache` for shared compilation cache
+- Split app into smaller workspace crates
+- Use `dx serve` not `dx build` during development
+- Pre-compile heavy dependencies in a base layer
+
+**.cargo/config.toml for faster macOS builds:**
+```toml
+[target.aarch64-apple-darwin]
+rustflags = ["-C", "link-arg=-fuse-ld=/opt/homebrew/bin/ld64.lld"]
+```
+
+**Dioxus.toml optimizations:**
+```toml
+[web.watcher]
+watch_path = ["src", "assets"]
+reload_html = true
+index_on_404 = true
+```
+
+**When waiting is unavoidable:**
+- Run `dx build --release` in background for production
+- Use `dx check` for quick validation without full build
+- Test on web first (faster iteration), then desktop
+
 ## Quality Assurance
 
 - Always verify RSX syntax is valid before presenting solutions

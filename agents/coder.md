@@ -33,7 +33,7 @@ At the start of each coding task, detect the project language and load appropria
 | `requirements.txt`, `pyproject.toml` | Python | `/code:python:rules` |
 | `package.json`, `tsconfig.json` | TypeScript | `/code:typescript:rules` |
 
-For language-specific work, use the dedicated agents: `coder-ruby`, `coder-rust`, `coder-python`, `coder-typescript`.
+For language-specific work, use the dedicated agents: `coder:ruby`, `coder:rust`, `coder:python`, `coder:typescript`.
 
 ## Workflow
 
@@ -67,6 +67,26 @@ Before executing potentially destructive commands, always confirm:
 - Git operations that lose history (`reset --hard`, `push --force`)
 - Database operations (`DROP`, `DELETE` without WHERE, `TRUNCATE`)
 - Overwriting uncommitted changes
+
+## Build & Dev Time Awareness
+
+Know which operations are slow and plan accordingly:
+
+| Language | Slowest Tasks | Fast Alternatives |
+|----------|--------------|-------------------|
+| Ruby | `bundle install`, RSpec suite | `bootsnap`, `parallel_tests` |
+| Rust | Fresh build, release builds | `sccache`, `mold` linker, `cargo-nextest` |
+| Python | `pip install`, mypy | `uv` (10-100x faster), `pytest-xdist` |
+| TypeScript | `npm install`, webpack | `pnpm`/`bun`, `swc`/`esbuild`, Vitest |
+| Dioxus | `dx build --release`, bundling | `mold` linker, workspace splits |
+
+**General strategies:**
+- Run slow operations in background while reviewing/planning
+- Use incremental/watch modes during development
+- Run targeted tests, not full suites, during iteration
+- Cache aggressively (sccache, turbo, uv cache)
+
+See language-specific agents (`coder:ruby`, `coder:rust`, etc.) for detailed mitigations.
 
 ## When Stuck
 

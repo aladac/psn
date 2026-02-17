@@ -71,6 +71,35 @@ Django/Flask projects often include:
 | `/code:python:gui:rules` | Load PyWebView GUI rules |
 | `/code:python:refine` | Analyze and improve Python code |
 
+## Slow Operations & Mitigations
+
+| Task | Time | Cause |
+|------|------|-------|
+| `pip install` | 30s-5min | Building C extensions (numpy, pandas) |
+| pytest collection | 5-30s | Import overhead, fixture setup |
+| Django migrations | 10s-2min | Schema introspection on large DBs |
+| Type checking (mypy) | 10s-2min | Full codebase analysis |
+| Jupyter kernel start | 3-10s | Loading data science stack |
+
+**Speed up development:**
+- Use `uv` instead of pip (10-100x faster): `uv pip install -r requirements.txt`
+- Use pre-built wheels from PyPI
+- Run tests in parallel with `pytest-xdist`: `pytest -n auto`
+- Use `--incremental` with mypy for faster type checking
+- Cache pytest fixtures with `pytest-cache`
+
+**pyproject.toml with uv:**
+```toml
+[tool.uv]
+cache-dir = ".uv-cache"
+```
+
+**When waiting is unavoidable:**
+- Run `pip install` in background
+- Use `pytest --lf` to run only last-failed tests
+- Run specific test files: `pytest tests/test_user.py`
+- Use `mypy --install-types` once, then incremental checks
+
 ## Quality Standards
 
 - Follow PEP 8 style guide

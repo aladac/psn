@@ -58,6 +58,51 @@ When comparing patterns:
 |---------|---------|
 | `/code:typescript:rules` | Load TypeScript coding rules |
 
+## Slow Operations & Mitigations
+
+| Task | Time | Cause |
+|------|------|-------|
+| `npm install` | 30s-3min | Downloading/extracting node_modules |
+| `tsc` type check | 10s-2min | Full project analysis |
+| Webpack/Vite build | 30s-5min | Bundling, tree-shaking, minification |
+| Jest cold start | 5-20s | Transform pipeline, module resolution |
+| Next.js dev server | 10-30s | Initial compilation |
+
+**Speed up development:**
+- Use `pnpm` or `bun` instead of npm (much faster installs)
+- Use `swc` or `esbuild` for transpilation (20x faster than tsc)
+- Use Vitest instead of Jest (faster, native ESM)
+- Use Turbopack with Next.js for faster dev builds
+- Enable TypeScript incremental builds
+
+**tsconfig.json optimizations:**
+```json
+{
+  "compilerOptions": {
+    "incremental": true,
+    "tsBuildInfoFile": ".tsbuildinfo",
+    "skipLibCheck": true
+  }
+}
+```
+
+**package.json scripts:**
+```json
+{
+  "scripts": {
+    "check": "tsc --noEmit",
+    "check:watch": "tsc --noEmit --watch",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  }
+}
+```
+
+**When waiting is unavoidable:**
+- Run `pnpm install` in background
+- Use `--filter` with monorepos: `pnpm --filter @app/web build`
+- Run specific tests: `vitest run src/utils`
+
 ## Quality Standards
 
 - Strict TypeScript config (`strict: true`)

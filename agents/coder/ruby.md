@@ -58,6 +58,28 @@ Use `/eval` frequently for fast feedback:
 | `/code:ruby:refine` | Analyze and improve Ruby code |
 | `/eval` | Execute Ruby in project context |
 
+## Slow Operations & Mitigations
+
+| Task | Time | Cause |
+|------|------|-------|
+| `bundle install` | 30s-5min | Native extensions (nokogiri, pg, grpc) |
+| Rails boot | 3-15s | Loading entire framework |
+| `spring` cold start | 2-5s | First command after idle |
+| RSpec full suite | 1-30min | DB setup, factories, serial execution |
+| Asset compilation | 30s-3min | Sprockets/Webpacker processing |
+
+**Speed up development:**
+- Use `bootsnap` for faster Rails boot
+- Use `spring` for preloaded Rails environment
+- Run tests in parallel with `parallel_tests` gem
+- Use precompiled native gems when available
+- Consider `turbo_tests` for even faster parallel RSpec
+
+**When waiting is unavoidable:**
+- Run `bundle install` in background while reviewing code
+- Use `--fail-fast` with RSpec during development
+- Run only relevant specs: `rspec spec/models/user_spec.rb`
+
 ## Quality Standards
 
 - Follow Ruby style guide (2 space indent, snake_case)
