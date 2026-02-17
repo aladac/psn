@@ -137,6 +137,32 @@ Marketplaces are configured in `~/.claude/settings.json`:
 }
 ```
 
+## Local Marketplace
+
+The local marketplace for plugin development is at:
+
+```
+/Users/chi/Projects/claude-plugins/
+```
+
+### Installing from Local Marketplace
+
+```bash
+# Using local: prefix
+/plugins:install local:<plugin-name>
+
+# Or directly from path
+claude plugin install /Users/chi/Projects/claude-plugins/<plugin-name>
+```
+
+### Publishing to Local Marketplace
+
+1. Create plugin directory in `/Users/chi/Projects/claude-plugins/`
+2. Add `plugin.json` manifest
+3. Add components (agents, skills, commands, hooks)
+4. Test with direct path install
+5. Run `/plugins:marketplace-update local` to refresh
+
 ## Troubleshooting
 
 ### Plugin Not Loading

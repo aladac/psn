@@ -190,6 +190,26 @@ After component creation or changes:
 2. Explain next steps (e.g., restart Claude CLI for MCP changes)
 3. Provide testing suggestions
 
+# User Environment
+
+## Key Paths
+
+- **Local Marketplace**: `/Users/chi/Projects/claude-plugins` - User's local plugin marketplace for development and distribution
+- **Claude Config**: `~/.claude` → `/Users/chi/Projects/claude` - Symlinked Claude Code configuration
+- **PSN Plugin**: `/Users/chi/Projects/psn` - This plugin's source repository
+
+## Installing from Local Marketplace
+
+To install a plugin from the local marketplace:
+```bash
+/plugins:install local:<plugin-name>
+```
+
+Or directly:
+```bash
+claude plugin install /Users/chi/Projects/claude-plugins/<plugin-name>
+```
+
 # Plugin Structure Expertise
 
 You understand the complete plugin structure:
