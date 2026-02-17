@@ -1,5 +1,8 @@
 """Hooks CLI commands."""
 
+import json
+import os
+import sys
 from pathlib import Path
 
 import typer
@@ -10,6 +13,30 @@ from personality.services.persona_builder import PersonaBuilder
 
 app = typer.Typer(invoke_without_command=True)
 console = Console()
+
+# Session tracking file for read files
+def _get_tracking_file() -> Path:
+    """Get the tracking file path for the current session."""
+    # Use CLAUDE_SESSION_ID if available, otherwise use a default
+    session_id = os.environ.get("CLAUDE_SESSION_ID", "default")
+    tracking_dir = Path(os.environ.get("TMPDIR", "/tmp")) / "claude-read-tracking"
+    tracking_dir.mkdir(parents=True, exist_ok=True)
+    return tracking_dir / f"{session_id}.txt"
+
+
+def _get_read_files() -> set[str]:
+    """Get the set of files that have been read this session."""
+    tracking_file = _get_tracking_file()
+    if tracking_file.exists():
+        return set(tracking_file.read_text().strip().split("\n"))
+    return set()
+
+
+def _record_read_file(file_path: str) -> None:
+    """Record that a file has been read."""
+    tracking_file = _get_tracking_file()
+    with tracking_file.open("a") as f:
+        f.write(f"{file_path}\n")
 
 # Prompts directory (relative to project root)
 PROMPTS_DIR = Path(__file__).parent.parent.parent.parent / "prompts"
@@ -34,6 +61,41 @@ def pre_tool_use() -> None:
     pass
 
 
+@pre_tool_use_app.command("require-read")
+def pre_tool_use_require_read() -> None:
+    """Block Write to existing files that haven't been read first.
+
+    Reads tool input from stdin (JSON with file_path).
+    Outputs blocking response if file exists but wasn't read.
+    """
+    # Read tool input from stdin
+    try:
+        tool_input = json.load(sys.stdin)
+    except (json.JSONDecodeError, EOFError):
+        return  # No input, allow
+
+    file_path = tool_input.get("file_path")
+    if not file_path:
+        return  # No file path, allow
+
+    # Check if file exists
+    target = Path(file_path)
+    if not target.exists():
+        return  # New file, allow
+
+    # Check if file was read this session
+    read_files = _get_read_files()
+    if file_path in read_files or str(target.resolve()) in read_files:
+        return  # File was read, allow
+
+    # Block the write
+    result = {
+        "decision": "block",
+        "reason": f"File '{file_path}' exists but hasn't been read. Read the file first before writing to it."
+    }
+    print(json.dumps(result))
+
+
 # Post-tool-use hook
 post_tool_use_app = typer.Typer(help="Post-tool-use hook")
 app.add_typer(post_tool_use_app, name="post-tool-use")
@@ -43,6 +105,34 @@ app.add_typer(post_tool_use_app, name="post-tool-use")
 def post_tool_use() -> None:
     """Hook called after tool execution."""
     pass
+
+
+@post_tool_use_app.command("track-read")
+def post_tool_use_track_read() -> None:
+    """Track files that have been read for require-read validation.
+
+    Reads tool input from stdin (JSON with file_path).
+    Records the file path to the session tracking file.
+    """
+    # Read tool input from stdin
+    try:
+        tool_input = json.load(sys.stdin)
+    except (json.JSONDecodeError, EOFError):
+        return  # No input, nothing to track
+
+    file_path = tool_input.get("file_path")
+    if not file_path:
+        return  # No file path, nothing to track
+
+    # Record that this file was read
+    _record_read_file(file_path)
+    # Also record resolved path for robustness
+    try:
+        resolved = str(Path(file_path).resolve())
+        if resolved != file_path:
+            _record_read_file(resolved)
+    except Exception:
+        pass  # Ignore resolution errors
 
 
 # Stop hook

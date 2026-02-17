@@ -23,5 +23,29 @@
       },
       "description": "Persona MCP server - identity, memories, knowledge, user, host, and project resources"
     }
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": {
+          "tool_name": "Read"
+        },
+        "command": "psn hooks post-tool-use track-read"
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": {
+          "tool_name": "Write"
+        },
+        "command": "psn hooks pre-tool-use require-read"
+      },
+      {
+        "matcher": {
+          "tool_name": "Edit"
+        },
+        "command": "psn hooks pre-tool-use require-read"
+      }
+    ]
   }
 }
