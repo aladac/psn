@@ -39,3 +39,9 @@ Configured in `.mcp.json`, all use the `psn mcp <server>` command:
 - `SSH_KEY` - SSH key path for remote connections
 - `PG_DATABASE` - Default PostgreSQL database
 - `EMBEDDING_MODEL` - Model for embeddings (nomic-embed-text)
+
+## Python
+
+- `pip` = `pip3`, `python` = `python3`
+- Use `pip3 install --break-system-packages` for system-wide installs
+- Use `uv add` for project dependencies

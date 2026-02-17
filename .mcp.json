@@ -47,7 +47,7 @@
       "env": {
         "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin",
         "EMBEDDING_MODEL": "nomic-ai/nomic-embed-text-v1.5",
-                "PG_HOST": "localhost",
+        "PG_HOST": "localhost",
         "PG_DATABASE": "personality"
       }
     },
@@ -57,7 +57,7 @@
       "env": {
         "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin",
         "EMBEDDING_MODEL": "nomic-ai/nomic-embed-text-v1.5",
-                "PG_HOST": "localhost",
+        "PG_HOST": "localhost",
         "PG_DATABASE": "personality"
       }
     },
