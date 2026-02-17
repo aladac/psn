@@ -3,4 +3,4 @@
 Provides persistent memory, semantic search, and local service integration.
 """
 
-__version__ = "0.2.0+87e0403"
+__version__ = "0.2.0+8f2e4e7"
