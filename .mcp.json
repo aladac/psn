@@ -2,12 +2,16 @@
   "mcpServers": {
     "docker-local": {
       "command": "psn",
-      "args": ["mcp", "docker-local"]
+      "args": ["mcp", "docker-local"],
+      "env": {
+        "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+      }
     },
     "docker-remote": {
       "command": "psn",
       "args": ["mcp", "docker-remote"],
       "env": {
+        "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin",
         "JUNKPILE_HOST": "junkpile",
         "SSH_KEY": "/Users/chi/.ssh/id_ed25519"
       }
@@ -16,6 +20,7 @@
       "command": "psn",
       "args": ["mcp", "ollama"],
       "env": {
+        "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin",
         "JUNKPILE_HOST": "junkpile",
         "SSH_KEY": "/Users/chi/.ssh/id_ed25519"
       }
@@ -24,6 +29,7 @@
       "command": "psn",
       "args": ["mcp", "postgres"],
       "env": {
+        "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin",
         "JUNKPILE_HOST": "junkpile",
         "SSH_KEY": "/Users/chi/.ssh/id_ed25519",
         "PG_DATABASE": "personality"
@@ -31,12 +37,16 @@
     },
     "sqlite": {
       "command": "psn",
-      "args": ["mcp", "sqlite"]
+      "args": ["mcp", "sqlite"],
+      "env": {
+        "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+      }
     },
     "memory": {
       "command": "psn",
       "args": ["mcp", "memory"],
       "env": {
+        "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin",
         "EMBEDDING_MODEL": "nomic-embed-text"
       }
     },
@@ -44,12 +54,16 @@
       "command": "psn",
       "args": ["mcp", "indexer"],
       "env": {
+        "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin",
         "EMBEDDING_MODEL": "nomic-embed-text"
       }
     },
     "tts": {
       "command": "psn",
-      "args": ["mcp", "tts"]
+      "args": ["mcp", "tts"],
+      "env": {
+        "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+      }
     }
   }
 }
