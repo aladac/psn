@@ -10,7 +10,7 @@ BREW_TAP="/opt/homebrew/Library/Taps/saiden-dev/homebrew-tap"
 cd "$PSN_ROOT"
 
 # Get base version (strip any existing +hash suffix)
-CURRENT_VERSION=$(grep -oP '__version__ = "\K[^"]+' src/personality/__init__.py)
+CURRENT_VERSION=$(sed -n 's/^__version__ = "\([^"]*\)"/\1/p' src/personality/__init__.py)
 BASE_VERSION=$(echo "$CURRENT_VERSION" | sed 's/+.*//')
 
 # Get the LAST commit hash BEFORE we make any changes
