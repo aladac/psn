@@ -1,6 +1,6 @@
 [project]
 name = "psn"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Persona system for Claude Code - MCP server, memory, TTS, cartridges"
 authors = [{ name = "chi", email = "chi@tengu.host" }]
 readme = "README.md"
@@ -32,6 +32,9 @@ Issues = "https://github.com/aladac/psn/issues"
 
 [project.scripts]
 psn = "personality.cli:app"
+
+[tool.hatch.version]
+path = "src/personality/__init__.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/personality"]
