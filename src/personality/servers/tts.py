@@ -81,8 +81,8 @@ def speak_text(text: str, voice: str | None = None) -> dict[str, Any]:
             wav_file.setsampwidth(2)  # 16-bit
             wav_file.setframerate(piper_voice.config.sample_rate)
 
-            for audio_bytes in piper_voice.synthesize_stream_raw(text):
-                wav_file.writeframes(audio_bytes)
+            for chunk in piper_voice.synthesize(text):
+                wav_file.writeframes(chunk.audio_int16_bytes)
 
         # Write to temp file and play (macOS)
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp_file:
