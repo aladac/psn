@@ -91,6 +91,13 @@ else
 fi
 
 echo ""
+echo "=== Update Claude Plugin ==="
+# Unset CLAUDECODE to allow running claude commands from within Claude Code
+CLAUDECODE="" claude mcp list > /dev/null 2>&1 || true
+CLAUDECODE="" claude plugin marketplace update saiden 2>/dev/null || echo "Marketplace update skipped"
+CLAUDECODE="" claude plugin update psn@saiden 2>/dev/null && echo "Plugin updated." || echo "Plugin update skipped"
+
+echo ""
 echo "=== Done ==="
 echo "Version: $NEW_VERSION"
 echo "Restart Claude CLI to load updated plugin."
