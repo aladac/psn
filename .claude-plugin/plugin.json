@@ -1,6 +1,6 @@
 {
   "name": "psn",
-  "version": "0.2.0+ab9f63b",
+  "version": "0.2.0+398adbe",
   "description": "Persona system for Claude Code - cartridges, MCP server, memory, and TTS",
   "author": {
     "name": "chi",
@@ -15,13 +15,81 @@
     "knowledge-graph"
   ],
   "mcpServers": {
-    "psn": {
+    "docker-local": {
       "command": "psn",
-      "args": ["mcp", "serve"],
+      "args": ["mcp", "docker-local"],
       "env": {
         "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
       },
-      "description": "Persona MCP server - identity, memories, knowledge, user, host, and project resources"
+      "description": "Local Docker management"
+    },
+    "docker-remote": {
+      "command": "psn",
+      "args": ["mcp", "docker-remote"],
+      "env": {
+        "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin",
+        "JUNKPILE_HOST": "${JUNKPILE_HOST}",
+        "SSH_KEY": "${SSH_KEY}"
+      },
+      "description": "Remote Docker management via SSH"
+    },
+    "ollama": {
+      "command": "psn",
+      "args": ["mcp", "ollama"],
+      "env": {
+        "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin",
+        "JUNKPILE_HOST": "${JUNKPILE_HOST}",
+        "SSH_KEY": "${SSH_KEY}"
+      },
+      "description": "Ollama model management"
+    },
+    "postgres": {
+      "command": "psn",
+      "args": ["mcp", "postgres"],
+      "env": {
+        "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin",
+        "PG_HOST": "${PG_HOST}",
+        "PG_DATABASE": "${PG_DATABASE}"
+      },
+      "description": "PostgreSQL database access"
+    },
+    "sqlite": {
+      "command": "psn",
+      "args": ["mcp", "sqlite"],
+      "env": {
+        "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+      },
+      "description": "SQLite database access"
+    },
+    "memory": {
+      "command": "psn",
+      "args": ["mcp", "memory"],
+      "env": {
+        "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin",
+        "EMBEDDING_MODEL": "${EMBEDDING_MODEL}",
+        "PG_HOST": "${PG_HOST}",
+        "PG_DATABASE": "${PG_DATABASE}"
+      },
+      "description": "Semantic memory with vector embeddings"
+    },
+    "indexer": {
+      "command": "psn",
+      "args": ["mcp", "indexer"],
+      "env": {
+        "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin",
+        "EMBEDDING_MODEL": "${EMBEDDING_MODEL}",
+        "PG_HOST": "${PG_HOST}",
+        "PG_DATABASE": "${PG_DATABASE}"
+      },
+      "description": "Code and documentation indexer"
+    },
+    "tts": {
+      "command": "psn",
+      "args": ["mcp", "tts"],
+      "env": {
+        "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+      },
+      "description": "Text-to-speech via Piper"
     }
   }
 }
