@@ -2,7 +2,7 @@
 # Get detailed Cloudflare Tunnel information
 set -euo pipefail
 
-NAME="${1:?Usage: tunnel_info.sh <name>}"
+NAME="${1:?Usage: tunnel-info.sh <name>}"
 
 echo "=== Tunnel Info: $NAME ==="
 cloudflared tunnel info "$NAME"

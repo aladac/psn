@@ -2,45 +2,71 @@
 name: memory:search
 description: Search memories by subject
 allowed-tools:
+  - TaskCreate
+  - TaskUpdate
   - mcp__memory__search
   - mcp__memory__list
-argument-hint: "[subject]"
+argument-hint: "[subject-pattern]"
 ---
 
 # Memory Search
 
 Search memories by subject pattern or list all subjects.
 
-## Instructions
+## Execution Flow
 
-1. If no subject provided, list all memory subjects with counts
-2. If subject provided, search for memories matching that subject
-3. Display results organized by subject
+1. **Create task with spinner**:
+   ```
+   TaskCreate(subject: "Search memories", activeForm: "Searching by subject...")
+   ```
 
-## Example
+2. **Execute search**:
+   - If pattern given: search by subject
+   - If no pattern: list all subjects with counts
+
+3. **Complete and display**:
+   ```
+   TaskUpdate(taskId: "...", status: "completed")
+   ```
+   Show organized results
+
+## Arguments
+
+- `subject-pattern` - Subject to search (optional)
+  - Exact: `user.preferences`
+  - Prefix: `user.*` or `project.api.*`
+
+## Examples
+
+### List All Subjects
 
 User: `/memory:search`
 
-Response:
 ```
-Memory Subjects:
-  user.preferences    3 memories
-  project.api         12 memories
-  tools.docker        5 memories
-  session             2 memories
+Memory subjects:
+
+user.preferences (4 memories)
+project.api (3 memories)
+tools.editor (2 memories)
+code.patterns (5 memories)
 ```
+
+### Search by Subject
 
 User: `/memory:search user.preferences`
 
-Response:
 ```
 Memories in 'user.preferences':
-  1. user.preferences.theme - "dark mode preferred"
-  2. user.preferences.editor - "uses neovim"
-  3. user.preferences.terminal - "kitty with fish shell"
+
+1. user.preferences.theme
+   "Dark mode preferred"
+
+2. user.preferences.code_style
+   "2-space indentation"
 ```
 
 ## Related
 - **Skill**: `Skill(skill: "psn:memory")` - Memory patterns
-- **Agent**: `psn:memory-curator` - Memory organization
+- **Skill**: `Skill(skill: "psn:pretty-output")` - Output guidelines
+- **Agent**: `psn:memory-curator` - Memory cleanup
 - **Commands**: `/memory:store`, `/memory:recall`

@@ -2,7 +2,7 @@
 # Get Cloudflare zone details and DNS records
 set -euo pipefail
 
-ZONE="${1:?Usage: zone_info.sh <zone>}"
+ZONE="${1:?Usage: zone-info.sh <zone>}"
 
 echo "=== Zone Info: $ZONE ==="
 flarectl zone info --zone "$ZONE"

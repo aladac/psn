@@ -2,34 +2,76 @@
 name: session:restore
 description: Restore a previously saved session
 allowed-tools:
+  - TaskCreate
+  - TaskUpdate
   - mcp__memory__recall
   - mcp__memory__search
-  - Read
+  - Bash
 argument-hint: "<name>"
 ---
 
 # Session Restore
 
-Restore a previously saved conversation session.
+Restore a previously saved session.
 
-## Instructions
+## Execution Flow
 
-1. If no name provided, list recent sessions and ask user to choose
-2. Search memory for session with subject `session.{name}`
-3. If found, restore context:
-   - Change to the saved working directory
-   - Summarize what was being worked on
-   - List any pending tasks
-   - Offer to continue where left off
-4. If not found, inform user and list available sessions
+1. **Create task with spinner**:
+   ```
+   TaskCreate(subject: "Restore session", activeForm: "Restoring session...")
+   ```
+
+2. **Find session**:
+   - Search for `session.{name}` in memory
+   - If not found, list available sessions
+
+3. **Restore context**:
+   - Change to saved directory
+   - Show git status
+   - Display saved context and pending tasks
+
+4. **Complete and summarize**:
+   ```
+   TaskUpdate(taskId: "...", status: "completed")
+   ```
+   Show what was restored
+
+## Arguments
+
+- `name` - Session name to restore
 
 ## Example
 
 User: `/session:restore morning-work`
 
-Response: "Session 'morning-work' restored. You were working on the API refactor in ~/Projects/api. Last task: implementing pagination. Continue?"
+Claude shows spinner: "Restoring session..."
+Then:
+
+```
+Session restored: 'morning-work'
+
+Directory: ~/Projects/api
+Branch: feature/pagination (2 commits ahead)
+Context: "implementing pagination for /users endpoint"
+
+Pending tasks:
+- Add tests for pagination
+- Update API docs
+```
+
+## No Session Found
+
+If session doesn't exist:
+
+```
+Session 'morning-work' not found
+
+Available sessions:
+- afternoon-debug (saved 2 hours ago)
+- api-refactor (saved yesterday)
+```
 
 ## Related
-- **Skill**: `Skill(skill: "psn:session")` - Session management patterns
+- **Skill**: `Skill(skill: "psn:session")` - Session patterns
+- **Skill**: `Skill(skill: "psn:pretty-output")` - Output guidelines
 - **Commands**: `/session:save`
-- **Tools used**: `mcp__memory__recall`, `mcp__memory__search`, `Read`

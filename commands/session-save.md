@@ -2,37 +2,64 @@
 name: session:save
 description: Save current session state for later restoration
 allowed-tools:
+  - TaskCreate
+  - TaskUpdate
   - mcp__memory__store
-  - Read
   - Bash
-argument-hint: "[name]"
+argument-hint: "<name> [description]"
 ---
 
 # Session Save
 
-Save the current conversation session for later restoration.
+Save current session state for later restoration.
 
-## Instructions
+## Execution Flow
 
-1. If a session name is provided, use it; otherwise generate one from the current timestamp
-2. Gather session context:
+1. **Create task with spinner**:
+   ```
+   TaskCreate(subject: "Save session", activeForm: "Saving session state...")
+   ```
+
+2. **Capture state**:
    - Current working directory
-   - Recent conversation summary (ask user if unclear)
-   - Open files or topics discussed
-   - Any pending tasks or todos
-3. Store the session using the memory MCP server:
+   - Git branch and status
+   - Recent context from conversation
+   - Any pending tasks
+
+3. **Store in memory**:
    - Subject: `session.{name}`
-   - Content: JSON with all gathered context
-   - Metadata: timestamp, working directory, user
-4. Confirm to user with session name for restoration
+   - Include timestamp and description
+
+4. **Complete and confirm**:
+   ```
+   TaskUpdate(taskId: "...", status: "completed")
+   ```
+   Show confirmation
+
+## Arguments
+
+- `name` - Session name (required)
+- `description` - What you were working on (optional)
 
 ## Example
 
-User: `/session:save morning-work`
+User: `/session:save morning-work implementing pagination`
 
-Response: "Session 'morning-work' saved. Use `/session:restore morning-work` to continue later."
+Claude shows spinner: "Saving session state..."
+Then:
+
+```
+Session saved: 'morning-work'
+
+Captured:
+- Directory: ~/Projects/api
+- Branch: feature/pagination
+- Context: "implementing pagination"
+
+Restore with: /session:restore morning-work
+```
 
 ## Related
-- **Skill**: `Skill(skill: "psn:session")` - Session management patterns
+- **Skill**: `Skill(skill: "psn:session")` - Session patterns
+- **Skill**: `Skill(skill: "psn:pretty-output")` - Output guidelines
 - **Commands**: `/session:restore`
-- **Tools used**: `mcp__memory__store`, `Read`, `Bash`

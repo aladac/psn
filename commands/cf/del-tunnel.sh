@@ -2,7 +2,7 @@
 # Delete a Cloudflare Tunnel
 set -euo pipefail
 
-NAME="${1:?Usage: del_tunnel.sh <name>}"
+NAME="${1:?Usage: del-tunnel.sh <name>}"
 
 echo "Deleting tunnel: $NAME"
 echo "Warning: Ensure tunnel is stopped and DNS routes are removed."

@@ -2,7 +2,7 @@
 # Create a new Cloudflare Tunnel
 set -euo pipefail
 
-NAME="${1:?Usage: add_tunnel.sh <name>}"
+NAME="${1:?Usage: add-tunnel.sh <name>}"
 
 echo "Creating tunnel: $NAME"
 cloudflared tunnel create "$NAME"

@@ -2,40 +2,62 @@
 name: memory:recall
 description: Recall information from persistent memory
 allowed-tools:
+  - TaskCreate
+  - TaskUpdate
   - mcp__memory__recall
-  - mcp__memory__search
-argument-hint: "<query>"
+argument-hint: "<query> [--subject filter]"
 ---
 
 # Memory Recall
 
-Recall information from persistent memory using semantic search.
+Recall memories by semantic similarity to a query.
 
-## Instructions
+## Execution Flow
 
-1. Use the query to search memory semantically
-2. Return the most relevant memories
-3. If subject filter provided (e.g., `user.preferences`), narrow search
-4. Present results with:
-   - Subject
-   - Content summary
-   - When it was stored
-   - Similarity score
+1. **Create task with spinner**:
+   ```
+   TaskCreate(subject: "Recall memories", activeForm: "Searching memories...")
+   ```
+
+2. **Search memories**:
+   - Use query for semantic search
+   - Apply subject filter if provided
+   - Get top 5 results by default
+
+3. **Complete and display**:
+   ```
+   TaskUpdate(taskId: "...", status: "completed")
+   ```
+   Show formatted results with subjects and relevance
+
+## Arguments
+
+- `query` - What to search for (semantic)
+- `--subject` - Optional filter by subject prefix
+- `--limit N` - Number of results (default: 5)
 
 ## Example
 
-User: `/memory:recall what theme does the user prefer`
+User: `/memory:recall how I like my code formatted`
 
-Response:
+Claude shows spinner: "Searching memories..."
+Then displays:
+
 ```
-Found 1 relevant memory:
+Found 3 memories:
 
-📝 user.preferences.theme (stored 2 hours ago)
-   "dark mode preferred"
-   Similarity: 0.92
+1. user.preferences.code_style (0.92)
+   "Prefers 2-space indentation, no trailing commas"
+
+2. project.api.conventions (0.85)
+   "Uses Prettier with default settings"
+
+3. tools.editor.settings (0.78)
+   "VS Code with format-on-save enabled"
 ```
 
 ## Related
 - **Skill**: `Skill(skill: "psn:memory")` - Memory patterns
-- **Agent**: `psn:memory-curator` - Memory organization
+- **Skill**: `Skill(skill: "psn:pretty-output")` - Output guidelines
+- **Agent**: `psn:memory-curator` - Memory cleanup
 - **Commands**: `/memory:store`, `/memory:search`

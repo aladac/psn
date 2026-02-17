@@ -2,7 +2,7 @@
 # Deploy to Cloudflare Pages
 set -euo pipefail
 
-DIRECTORY="${1:?Usage: pages_deploy.sh <directory> <project> [branch]}"
+DIRECTORY="${1:?Usage: pages-deploy.sh <directory> <project> [branch]}"
 PROJECT="${2:?Missing project name}"
 BRANCH="${3:-main}"
 

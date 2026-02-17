@@ -2,45 +2,63 @@
 name: index:status
 description: Show indexing status and statistics
 allowed-tools:
+  - TaskCreate
+  - TaskUpdate
   - mcp__indexer__status
-argument-hint: "[project]"
+argument-hint: "[--project name]"
 ---
 
 # Index Status
 
-Show current indexing status and statistics.
+Show indexing status and statistics.
 
-## Instructions
+## Execution Flow
 
-1. Call indexer status tool
-2. If project specified, filter to that project
-3. Display:
-   - Total indexed chunks (code and docs)
-   - Breakdown by project
-   - Last indexed timestamp
-   - Index health
+1. **Create task with spinner**:
+   ```
+   TaskCreate(subject: "Index status", activeForm: "Fetching index stats...")
+   ```
+
+2. **Get status**:
+   - Query indexer for statistics
+   - Filter by project if specified
+
+3. **Complete and display**:
+   ```
+   TaskUpdate(taskId: "...", status: "completed")
+   ```
+   Show formatted statistics
+
+## Arguments
+
+- `--project name` - Filter to specific project
 
 ## Example
 
 User: `/index:status`
 
-Response:
+Claude shows spinner: "Fetching index stats..."
+Then:
+
 ```
-Index Status:
+Index Status
 
-Code Index:
-  my-api       247 chunks (last: 2h ago)
-  personality   89 chunks (last: 1d ago)
+Projects indexed: 3
 
-Doc Index:
-  my-api        45 chunks (last: 2h ago)
-  personality   12 chunks (last: 1d ago)
+my-api
+  Code: 247 chunks (89 files)
+  Docs: 45 chunks (15 files)
+  Last indexed: 2 hours ago
 
-Total: 393 chunks across 2 projects
+blog
+  Code: 124 chunks (42 files)
+  Docs: 12 chunks (5 files)
+  Last indexed: 1 day ago
+
+Total: 428 chunks
 ```
 
 ## Related
 - **Skill**: `Skill(skill: "psn:indexer")` - Indexing best practices
-- **Agent**: `psn:code-analyzer` - Deep code analysis
+- **Skill**: `Skill(skill: "psn:pretty-output")` - Output guidelines
 - **Commands**: `/index:code`, `/index:docs`
-- **Tools used**: `mcp__indexer__status`

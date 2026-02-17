@@ -2,7 +2,7 @@
 # Delete a Cloudflare Pages project
 set -euo pipefail
 
-PROJECT="${1:?Usage: pages_destroy.sh <project>}"
+PROJECT="${1:?Usage: pages-destroy.sh <project>}"
 
 echo "Deleting Pages project: $PROJECT"
 echo "Warning: This deletes all deployments and custom domains."

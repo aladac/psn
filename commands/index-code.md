@@ -2,6 +2,8 @@
 name: index:code
 description: Index a codebase for semantic search
 allowed-tools:
+  - TaskCreate
+  - TaskUpdate
   - mcp__indexer__index_code
   - mcp__indexer__status
   - Glob
@@ -12,38 +14,51 @@ argument-hint: "[path] [--project name]"
 
 Index code files in a directory for semantic search.
 
-## Instructions
+## Execution Flow
 
-1. Use provided path or current working directory
-2. Determine project name from --project flag or directory name
-3. Call the indexer with:
-   - path: Directory to index
-   - project: Project name for grouping
-4. Report progress and final count
-5. Note any errors (e.g., binary files, encoding issues)
+1. **Create task with spinner**:
+   ```
+   TaskCreate(subject: "Index code", activeForm: "Indexing codebase...")
+   ```
+
+2. **Determine scope**:
+   - Use provided path or current working directory
+   - Get project name from --project flag or directory name
+
+3. **Index files**:
+   - Call indexer with path and project
+   - Update spinner with progress if available
+
+4. **Complete and summarize**:
+   ```
+   TaskUpdate(taskId: "...", status: "completed")
+   ```
+   Show clean summary with counts
 
 ## Supported Languages
 
-Indexes: `.py`, `.rs`, `.rb`, `.js`, `.ts`, `.go`, `.java`, `.c`, `.cpp`, `.h`
+`.py`, `.rs`, `.rb`, `.js`, `.ts`, `.go`, `.java`, `.c`, `.cpp`, `.h`
 
 ## Example
 
 User: `/index:code ~/Projects/api --project my-api`
 
-Response:
+Claude shows spinner: "Indexing codebase..."
+Then:
+
 ```
-Indexing ~/Projects/api as 'my-api'...
+Indexed 'my-api'
 
-✓ Indexed 247 code chunks
-  - 89 Python files
-  - 34 TypeScript files
-  - 12 SQL files
+247 code chunks indexed
+- 89 Python files
+- 34 TypeScript files
+- 12 SQL files
 
-Use `/index:search <query>` to search.
+Search with: /index:search <query>
 ```
 
 ## Related
 - **Skill**: `Skill(skill: "psn:indexer")` - Indexing best practices
+- **Skill**: `Skill(skill: "psn:pretty-output")` - Output guidelines
 - **Agent**: `psn:code-analyzer` - Deep code analysis
 - **Commands**: `/index:docs`, `/index:status`
-- **Tools used**: `mcp__indexer__index_code`, `mcp__indexer__status`, `Glob`
