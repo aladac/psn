@@ -1,4 +1,5 @@
 ---
+name: reinstall
 description: Reinstall PSN plugin via Homebrew with latest source
 allowed-tools: ["Bash"]
 ---

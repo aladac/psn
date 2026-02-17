@@ -1,6 +1,7 @@
 ---
 name: memory-curator
-whenToUse: |
+color: green
+description: |
   Use this agent to organize, clean up, or analyze the memory system. Triggers when user wants to review stored memories, consolidate duplicate entries, remove outdated information, or get insights about what's been remembered.
 
   <example>
