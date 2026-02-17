@@ -1,63 +1,42 @@
 #!/usr/bin/env python3
 """PostgreSQL MCP Server.
 
-Provides database access and vector search via pgvector on junkpile.
+Provides database access and vector search via pgvector.
+Uses psycopg for direct PostgreSQL connections.
 """
 import json
 import logging
 import os
-import subprocess
 from typing import Any
 
+import psycopg
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import TextContent, Tool
+from pgvector.psycopg import register_vector
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 server = Server("postgres")
 
-JUNKPILE_HOST = os.environ.get("JUNKPILE_HOST", "junkpile")
-SSH_KEY = os.environ.get("SSH_KEY", "/Users/chi/.ssh/id_ed25519")
+# Configuration
+PG_HOST = os.environ.get("PG_HOST", "junkpile")
+PG_PORT = os.environ.get("PG_PORT", "5432")
 PG_DATABASE = os.environ.get("PG_DATABASE", "personality")
-PG_LOCAL = os.environ.get("PG_LOCAL", "false").lower() == "true"
+PG_USER = os.environ.get("PG_USER", "chi")
 
 
-def run_psql(query: str, database: str | None = None) -> dict[str, Any]:
-    """Execute a PostgreSQL query locally or on junkpile via SSH."""
-    db = database or PG_DATABASE
-    escaped_query = query.replace('"', '\\"').replace("'", "'\\''")
-
-    if PG_LOCAL:
-        # Run locally
-        psql_cmd = f'psql -d {db} -t -A -c "{escaped_query}"'
-        try:
-            result = subprocess.run(psql_cmd, shell=True, capture_output=True, text=True, timeout=60)
-            return {
-                "success": result.returncode == 0,
-                "output": result.stdout.strip(),
-                "error": result.stderr.strip() if result.stderr else None,
-            }
-        except subprocess.TimeoutExpired:
-            return {"success": False, "error": "Query timed out"}
-        except Exception as e:
-            return {"success": False, "error": str(e)}
-    else:
-        # Via SSH to junkpile
-        psql_cmd = f"sudo -u postgres psql -d {db} -t -A -c \"{escaped_query}\""
-        ssh_cmd = ["ssh", "-i", SSH_KEY, JUNKPILE_HOST, psql_cmd]
-        try:
-            result = subprocess.run(ssh_cmd, capture_output=True, text=True, timeout=60)
-            return {
-                "success": result.returncode == 0,
-                "output": result.stdout.strip(),
-                "error": result.stderr.strip() if result.stderr else None,
-            }
-        except subprocess.TimeoutExpired:
-            return {"success": False, "error": "Query timed out"}
-        except Exception as e:
-            return {"success": False, "error": str(e)}
+def get_connection(database: str | None = None) -> psycopg.Connection:
+    """Get a PostgreSQL connection."""
+    conn = psycopg.connect(
+        host=PG_HOST,
+        port=PG_PORT,
+        dbname=database or PG_DATABASE,
+        user=PG_USER,
+    )
+    register_vector(conn)
+    return conn
 
 
 @server.list_tools()
@@ -126,47 +105,143 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
     """Handle tool calls."""
     logger.info(f"Tool called: {name} with {arguments}")
 
-    if name == "query":
-        result = run_psql(arguments["sql"], arguments.get("database"))
+    try:
+        with get_connection(arguments.get("database")) as conn:
+            if name == "query":
+                result = execute_query(conn, arguments["sql"])
+            elif name == "execute":
+                result = execute_statement(conn, arguments["sql"])
+            elif name == "vector_search":
+                result = vector_search(conn, arguments)
+            elif name == "schema":
+                result = get_schema(conn, arguments.get("table"))
+            else:
+                result = {"error": f"Unknown tool: {name}"}
 
-    elif name == "execute":
-        result = run_psql(arguments["sql"], arguments.get("database"))
-
-    elif name == "vector_search":
-        table = arguments["table"]
-        column = arguments["column"]
-        embedding = arguments["embedding"]
-        limit = arguments.get("limit", 10)
-
-        # Format embedding as PostgreSQL array
-        vec_str = "[" + ",".join(map(str, embedding)) + "]"
-        query = f"""
-            SELECT *, {column} <-> '{vec_str}' AS distance
-            FROM {table}
-            ORDER BY {column} <-> '{vec_str}'
-            LIMIT {limit}
-        """
-        if arguments.get("threshold"):
-            query = f"""
-                SELECT *, {column} <-> '{vec_str}' AS distance
-                FROM {table}
-                WHERE {column} <-> '{vec_str}' < {arguments['threshold']}
-                ORDER BY {column} <-> '{vec_str}'
-                LIMIT {limit}
-            """
-        result = run_psql(query, arguments.get("database"))
-
-    elif name == "schema":
-        if arguments.get("table"):
-            query = f"\\d {arguments['table']}"
-        else:
-            query = "\\dt"
-        result = run_psql(query, arguments.get("database"))
-
-    else:
-        result = {"error": f"Unknown tool: {name}"}
+    except Exception as e:
+        logger.exception(f"Error in tool {name}")
+        result = {"success": False, "error": str(e)}
 
     return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+
+def execute_query(conn: psycopg.Connection, sql: str) -> dict[str, Any]:
+    """Execute a SELECT query and return results."""
+    with conn.cursor() as cur:
+        cur.execute(sql)
+        columns = [desc[0] for desc in cur.description] if cur.description else []
+        rows = cur.fetchall()
+
+        # Convert rows to list of dicts
+        results = []
+        for row in rows:
+            results.append(dict(zip(columns, [serialize_value(v) for v in row])))
+
+    return {"success": True, "columns": columns, "rows": results, "count": len(results)}
+
+
+def execute_statement(conn: psycopg.Connection, sql: str) -> dict[str, Any]:
+    """Execute a modifying SQL statement."""
+    with conn.cursor() as cur:
+        cur.execute(sql)
+        rowcount = cur.rowcount
+    conn.commit()
+
+    return {"success": True, "affected_rows": rowcount}
+
+
+def vector_search(conn: psycopg.Connection, arguments: dict[str, Any]) -> dict[str, Any]:
+    """Search for similar vectors using pgvector."""
+    table = arguments["table"]
+    column = arguments["column"]
+    embedding = arguments["embedding"]
+    limit = arguments.get("limit", 10)
+    threshold = arguments.get("threshold")
+
+    with conn.cursor() as cur:
+        if threshold:
+            cur.execute(
+                f"""
+                SELECT *, {column} <-> %s::vector AS distance
+                FROM {table}
+                WHERE {column} <-> %s::vector < %s
+                ORDER BY {column} <-> %s::vector
+                LIMIT %s
+                """,
+                (embedding, embedding, threshold, embedding, limit),
+            )
+        else:
+            cur.execute(
+                f"""
+                SELECT *, {column} <-> %s::vector AS distance
+                FROM {table}
+                ORDER BY {column} <-> %s::vector
+                LIMIT %s
+                """,
+                (embedding, embedding, limit),
+            )
+
+        columns = [desc[0] for desc in cur.description] if cur.description else []
+        rows = cur.fetchall()
+
+        results = []
+        for row in rows:
+            results.append(dict(zip(columns, [serialize_value(v) for v in row])))
+
+    return {"success": True, "columns": columns, "rows": results, "count": len(results)}
+
+
+def get_schema(conn: psycopg.Connection, table: str | None = None) -> dict[str, Any]:
+    """Get database schema information."""
+    with conn.cursor() as cur:
+        if table:
+            # Get column info for specific table
+            cur.execute(
+                """
+                SELECT column_name, data_type, is_nullable, column_default
+                FROM information_schema.columns
+                WHERE table_name = %s
+                ORDER BY ordinal_position
+                """,
+                (table,),
+            )
+            columns = cur.fetchall()
+            schema = [
+                {
+                    "column": col[0],
+                    "type": col[1],
+                    "nullable": col[2] == "YES",
+                    "default": col[3],
+                }
+                for col in columns
+            ]
+            return {"success": True, "table": table, "columns": schema}
+        else:
+            # List all tables
+            cur.execute(
+                """
+                SELECT table_name
+                FROM information_schema.tables
+                WHERE table_schema = 'public'
+                ORDER BY table_name
+                """
+            )
+            tables = [row[0] for row in cur.fetchall()]
+            return {"success": True, "tables": tables}
+
+
+def serialize_value(value: Any) -> Any:
+    """Serialize a value for JSON output."""
+    if value is None:
+        return None
+    if isinstance(value, (str, int, float, bool)):
+        return value
+    if isinstance(value, (list, tuple)):
+        return [serialize_value(v) for v in value]
+    if isinstance(value, dict):
+        return {k: serialize_value(v) for k, v in value.items()}
+    # Handle datetime, UUID, etc.
+    return str(value)
 
 
 async def main() -> None:

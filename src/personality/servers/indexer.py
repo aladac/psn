@@ -2,117 +2,107 @@
 """Indexer MCP Server.
 
 Provides code and document indexing with semantic search.
+Uses sentence-transformers for embeddings and PostgreSQL/pgvector for storage.
 """
 import hashlib
 import json
 import logging
 import os
-import subprocess
 from pathlib import Path
 from typing import Any
 
+import psycopg
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import TextContent, Tool
+from pgvector.psycopg import register_vector
+from sentence_transformers import SentenceTransformer
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 server = Server("indexer")
 
-JUNKPILE_HOST = os.environ.get("JUNKPILE_HOST", "junkpile")
-SSH_KEY = os.environ.get("SSH_KEY", "/Users/chi/.ssh/id_ed25519")
-EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL", "nomic-embed-text")
+# Configuration
+EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL", "nomic-ai/nomic-embed-text-v1.5")
+PG_HOST = os.environ.get("PG_HOST", "junkpile")
+PG_PORT = os.environ.get("PG_PORT", "5432")
 PG_DATABASE = os.environ.get("PG_DATABASE", "personality")
-PG_LOCAL = os.environ.get("PG_LOCAL", "false").lower() == "true"
-OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "")  # Empty = use junkpile via SSH
+PG_USER = os.environ.get("PG_USER", "chi")
 
 # File extensions to index
 CODE_EXTENSIONS = {".py", ".rs", ".rb", ".js", ".ts", ".go", ".java", ".c", ".cpp", ".h"}
 DOC_EXTENSIONS = {".md", ".txt", ".rst", ".adoc"}
 
-
-def ssh_command(cmd: str) -> dict[str, Any]:
-    """Run a command on junkpile via SSH."""
-    ssh_cmd = ["ssh", "-i", SSH_KEY, JUNKPILE_HOST, cmd]
-    try:
-        result = subprocess.run(ssh_cmd, capture_output=True, text=True, timeout=300)
-        return {"success": result.returncode == 0, "stdout": result.stdout, "stderr": result.stderr}
-    except Exception as e:
-        return {"success": False, "error": str(e)}
+# Lazy-loaded model
+_model: SentenceTransformer | None = None
 
 
-def get_embedding(text: str) -> list[float] | None:
-    """Get embedding for text via Ollama."""
-    data = json.dumps({"model": EMBEDDING_MODEL, "prompt": text[:8000]})  # Truncate long text
-
-    if OLLAMA_HOST:
-        # Local or direct Ollama connection
-        import urllib.request
-        import urllib.error
-
-        url = f"http://{OLLAMA_HOST}/api/embeddings"
-        req = urllib.request.Request(url, data=data.encode(), headers={"Content-Type": "application/json"})
-        try:
-            with urllib.request.urlopen(req, timeout=60) as resp:
-                response = json.loads(resp.read().decode())
-                return response.get("embedding")
-        except (urllib.error.URLError, json.JSONDecodeError):
-            return None
-    else:
-        # Via SSH to junkpile
-        cmd = f"curl -s -X POST http://localhost:11434/api/embeddings -d '{data}'"
-        result = ssh_command(cmd)
-        if result.get("success") and result.get("stdout"):
-            try:
-                response = json.loads(result["stdout"])
-                return response.get("embedding")
-            except json.JSONDecodeError:
-                pass
-        return None
+def get_model() -> SentenceTransformer:
+    """Get or initialize the embedding model."""
+    global _model
+    if _model is None:
+        logger.info(f"Loading embedding model: {EMBEDDING_MODEL}")
+        _model = SentenceTransformer(EMBEDDING_MODEL, trust_remote_code=True)
+        logger.info("Model loaded successfully")
+    return _model
 
 
-def run_psql(query: str) -> dict[str, Any]:
-    """Execute a PostgreSQL query locally or on junkpile."""
-    escaped_query = query.replace("'", "'\"'\"'")
-    cmd = f"psql -d {PG_DATABASE} -t -A -c '{escaped_query}'"
-
-    if PG_LOCAL:
-        # Run locally
-        try:
-            result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=120)
-            return {"success": result.returncode == 0, "stdout": result.stdout, "stderr": result.stderr}
-        except Exception as e:
-            return {"success": False, "error": str(e)}
-    else:
-        return ssh_command(cmd)
+def get_connection() -> psycopg.Connection:
+    """Get a PostgreSQL connection."""
+    conn = psycopg.connect(
+        host=PG_HOST,
+        port=PG_PORT,
+        dbname=PG_DATABASE,
+        user=PG_USER,
+    )
+    register_vector(conn)
+    return conn
 
 
-def ensure_schema() -> None:
+def get_embedding(text: str) -> list[float]:
+    """Get embedding for text using sentence-transformers."""
+    model = get_model()
+    # Truncate to avoid token limits
+    truncated = text[:8000]
+    embedding = model.encode(truncated, convert_to_numpy=True)
+    return embedding.tolist()
+
+
+def ensure_schema(conn: psycopg.Connection) -> None:
     """Ensure the index tables exist."""
-    schema_sql = """
-    CREATE EXTENSION IF NOT EXISTS vector;
-    CREATE TABLE IF NOT EXISTS code_index (
-        id TEXT PRIMARY KEY,
-        path TEXT NOT NULL,
-        content TEXT NOT NULL,
-        embedding vector(768),
-        language TEXT,
-        project TEXT,
-        indexed_at TIMESTAMP DEFAULT NOW()
-    );
-    CREATE TABLE IF NOT EXISTS doc_index (
-        id TEXT PRIMARY KEY,
-        path TEXT NOT NULL,
-        content TEXT NOT NULL,
-        embedding vector(768),
-        project TEXT,
-        indexed_at TIMESTAMP DEFAULT NOW()
-    );
-    CREATE INDEX IF NOT EXISTS code_embedding_idx ON code_index USING ivfflat (embedding vector_cosine_ops);
-    CREATE INDEX IF NOT EXISTS doc_embedding_idx ON doc_index USING ivfflat (embedding vector_cosine_ops);
-    """
-    run_psql(schema_sql)
+    with conn.cursor() as cur:
+        cur.execute("CREATE EXTENSION IF NOT EXISTS vector")
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS code_index (
+                id TEXT PRIMARY KEY,
+                path TEXT NOT NULL,
+                content TEXT NOT NULL,
+                embedding vector(768),
+                language TEXT,
+                project TEXT,
+                indexed_at TIMESTAMP DEFAULT NOW()
+            )
+        """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS doc_index (
+                id TEXT PRIMARY KEY,
+                path TEXT NOT NULL,
+                content TEXT NOT NULL,
+                embedding vector(768),
+                project TEXT,
+                indexed_at TIMESTAMP DEFAULT NOW()
+            )
+        """)
+        cur.execute("""
+            CREATE INDEX IF NOT EXISTS code_embedding_idx
+            ON code_index USING ivfflat (embedding vector_cosine_ops)
+        """)
+        cur.execute("""
+            CREATE INDEX IF NOT EXISTS doc_embedding_idx
+            ON doc_index USING ivfflat (embedding vector_cosine_ops)
+        """)
+    conn.commit()
 
 
 def chunk_content(content: str, chunk_size: int = 2000, overlap: int = 200) -> list[str]:
@@ -211,157 +201,239 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
     """Handle tool calls."""
     logger.info(f"Tool called: {name} with {arguments}")
 
-    ensure_schema()
+    try:
+        with get_connection() as conn:
+            ensure_schema(conn)
 
-    if name == "index_code":
-        path = Path(arguments["path"]).expanduser()
-        project = arguments.get("project", path.name)
-        extensions = set(arguments.get("extensions", CODE_EXTENSIONS))
+            if name == "index_code":
+                result = index_code(conn, arguments)
+            elif name == "index_docs":
+                result = index_docs(conn, arguments)
+            elif name == "search":
+                result = search_index(conn, arguments)
+            elif name == "status":
+                result = get_status(conn, arguments)
+            elif name == "clear":
+                result = clear_index(conn, arguments)
+            else:
+                result = {"error": f"Unknown tool: {name}"}
 
-        indexed = 0
-        errors = []
-
-        for file_path in path.rglob("*"):
-            if file_path.suffix not in extensions or not file_path.is_file():
-                continue
-
-            try:
-                content = file_path.read_text(errors="ignore")
-                if len(content) < 10:
-                    continue
-
-                for i, chunk in enumerate(chunk_content(content)):
-                    chunk_id = hashlib.md5(f"{file_path}:{i}".encode()).hexdigest()
-                    embedding = get_embedding(chunk)
-
-                    if embedding:
-                        vec_str = "[" + ",".join(map(str, embedding)) + "]"
-                        sql = f"""
-                            INSERT INTO code_index (id, path, content, embedding, language, project)
-                            VALUES ('{chunk_id}', '{str(file_path)}', '{chunk.replace("'", "''")}',
-                                    '{vec_str}', '{file_path.suffix}', '{project}')
-                            ON CONFLICT (id) DO UPDATE SET content = EXCLUDED.content, embedding = EXCLUDED.embedding
-                        """
-                        run_psql(sql)
-                        indexed += 1
-
-            except Exception as e:
-                errors.append(f"{file_path}: {e}")
-
-        result = {"success": True, "indexed": indexed, "project": project, "errors": errors[:5]}
-
-    elif name == "index_docs":
-        path = Path(arguments["path"]).expanduser()
-        project = arguments.get("project", path.name)
-
-        indexed = 0
-        errors = []
-
-        for file_path in path.rglob("*"):
-            if file_path.suffix not in DOC_EXTENSIONS or not file_path.is_file():
-                continue
-
-            try:
-                content = file_path.read_text(errors="ignore")
-                if len(content) < 10:
-                    continue
-
-                for i, chunk in enumerate(chunk_content(content)):
-                    chunk_id = hashlib.md5(f"{file_path}:{i}".encode()).hexdigest()
-                    embedding = get_embedding(chunk)
-
-                    if embedding:
-                        vec_str = "[" + ",".join(map(str, embedding)) + "]"
-                        sql = f"""
-                            INSERT INTO doc_index (id, path, content, embedding, project)
-                            VALUES ('{chunk_id}', '{str(file_path)}', '{chunk.replace("'", "''")}',
-                                    '{vec_str}', '{project}')
-                            ON CONFLICT (id) DO UPDATE SET content = EXCLUDED.content, embedding = EXCLUDED.embedding
-                        """
-                        run_psql(sql)
-                        indexed += 1
-
-            except Exception as e:
-                errors.append(f"{file_path}: {e}")
-
-        result = {"success": True, "indexed": indexed, "project": project, "errors": errors[:5]}
-
-    elif name == "search":
-        query = arguments["query"]
-        search_type = arguments.get("type", "all")
-        limit = arguments.get("limit", 10)
-
-        embedding = get_embedding(query)
-        if not embedding:
-            result = {"success": False, "error": "Failed to generate query embedding"}
-        else:
-            vec_str = "[" + ",".join(map(str, embedding)) + "]"
-            results = []
-
-            if search_type in ("code", "all"):
-                sql = f"""
-                    SELECT path, content, 1 - (embedding <=> '{vec_str}') AS similarity
-                    FROM code_index
-                """
-                if arguments.get("project"):
-                    sql += f" WHERE project = '{arguments['project']}'"
-                sql += f" ORDER BY embedding <=> '{vec_str}' LIMIT {limit}"
-                db_result = run_psql(sql)
-                if db_result.get("success"):
-                    results.extend([{"type": "code", "line": l} for l in db_result.get("stdout", "").strip().split("\n") if l])
-
-            if search_type in ("docs", "all"):
-                sql = f"""
-                    SELECT path, content, 1 - (embedding <=> '{vec_str}') AS similarity
-                    FROM doc_index
-                """
-                if arguments.get("project"):
-                    sql += f" WHERE project = '{arguments['project']}'"
-                sql += f" ORDER BY embedding <=> '{vec_str}' LIMIT {limit}"
-                db_result = run_psql(sql)
-                if db_result.get("success"):
-                    results.extend([{"type": "docs", "line": l} for l in db_result.get("stdout", "").strip().split("\n") if l])
-
-            result = {"success": True, "results": results}
-
-    elif name == "status":
-        code_sql = "SELECT project, COUNT(*) FROM code_index GROUP BY project"
-        doc_sql = "SELECT project, COUNT(*) FROM doc_index GROUP BY project"
-
-        if arguments.get("project"):
-            code_sql = f"SELECT project, COUNT(*) FROM code_index WHERE project = '{arguments['project']}' GROUP BY project"
-            doc_sql = f"SELECT project, COUNT(*) FROM doc_index WHERE project = '{arguments['project']}' GROUP BY project"
-
-        code_result = run_psql(code_sql)
-        doc_result = run_psql(doc_sql)
-
-        result = {
-            "success": True,
-            "code_index": code_result.get("stdout", "").strip().split("\n") if code_result.get("success") else [],
-            "doc_index": doc_result.get("stdout", "").strip().split("\n") if doc_result.get("success") else [],
-        }
-
-    elif name == "clear":
-        clear_type = arguments.get("type", "all")
-
-        if clear_type in ("code", "all"):
-            sql = "DELETE FROM code_index"
-            if arguments.get("project"):
-                sql += f" WHERE project = '{arguments['project']}'"
-            run_psql(sql)
-
-        if clear_type in ("docs", "all"):
-            sql = "DELETE FROM doc_index"
-            if arguments.get("project"):
-                sql += f" WHERE project = '{arguments['project']}'"
-            run_psql(sql)
-
-        result = {"success": True, "cleared": clear_type, "project": arguments.get("project", "all")}
-
-    else:
-        result = {"error": f"Unknown tool: {name}"}
+    except Exception as e:
+        logger.exception(f"Error in tool {name}")
+        result = {"success": False, "error": str(e)}
 
     return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+
+def index_code(conn: psycopg.Connection, arguments: dict[str, Any]) -> dict[str, Any]:
+    """Index code files in a directory."""
+    path = Path(arguments["path"]).expanduser()
+    project = arguments.get("project", path.name)
+    extensions = set(arguments.get("extensions", CODE_EXTENSIONS))
+
+    indexed = 0
+    errors = []
+
+    for file_path in path.rglob("*"):
+        if file_path.suffix not in extensions or not file_path.is_file():
+            continue
+
+        try:
+            content = file_path.read_text(errors="ignore")
+            if len(content) < 10:
+                continue
+
+            for i, chunk in enumerate(chunk_content(content)):
+                chunk_id = hashlib.md5(f"{file_path}:{i}".encode()).hexdigest()
+                embedding = get_embedding(chunk)
+
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """
+                        INSERT INTO code_index (id, path, content, embedding, language, project)
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                        ON CONFLICT (id) DO UPDATE SET
+                            content = EXCLUDED.content,
+                            embedding = EXCLUDED.embedding,
+                            indexed_at = NOW()
+                        """,
+                        (chunk_id, str(file_path), chunk, embedding, file_path.suffix, project),
+                    )
+                conn.commit()
+                indexed += 1
+
+        except Exception as e:
+            errors.append(f"{file_path}: {e}")
+
+    return {"success": True, "indexed": indexed, "project": project, "errors": errors[:5]}
+
+
+def index_docs(conn: psycopg.Connection, arguments: dict[str, Any]) -> dict[str, Any]:
+    """Index documentation files in a directory."""
+    path = Path(arguments["path"]).expanduser()
+    project = arguments.get("project", path.name)
+
+    indexed = 0
+    errors = []
+
+    for file_path in path.rglob("*"):
+        if file_path.suffix not in DOC_EXTENSIONS or not file_path.is_file():
+            continue
+
+        try:
+            content = file_path.read_text(errors="ignore")
+            if len(content) < 10:
+                continue
+
+            for i, chunk in enumerate(chunk_content(content)):
+                chunk_id = hashlib.md5(f"{file_path}:{i}".encode()).hexdigest()
+                embedding = get_embedding(chunk)
+
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """
+                        INSERT INTO doc_index (id, path, content, embedding, project)
+                        VALUES (%s, %s, %s, %s, %s)
+                        ON CONFLICT (id) DO UPDATE SET
+                            content = EXCLUDED.content,
+                            embedding = EXCLUDED.embedding,
+                            indexed_at = NOW()
+                        """,
+                        (chunk_id, str(file_path), chunk, embedding, project),
+                    )
+                conn.commit()
+                indexed += 1
+
+        except Exception as e:
+            errors.append(f"{file_path}: {e}")
+
+    return {"success": True, "indexed": indexed, "project": project, "errors": errors[:5]}
+
+
+def search_index(conn: psycopg.Connection, arguments: dict[str, Any]) -> dict[str, Any]:
+    """Search indexed code and docs."""
+    query = arguments["query"]
+    search_type = arguments.get("type", "all")
+    limit = arguments.get("limit", 10)
+    project_filter = arguments.get("project")
+
+    embedding = get_embedding(query)
+    results = []
+
+    with conn.cursor() as cur:
+        if search_type in ("code", "all"):
+            if project_filter:
+                cur.execute(
+                    """
+                    SELECT path, content, 1 - (embedding <=> %s::vector) AS similarity
+                    FROM code_index
+                    WHERE project = %s
+                    ORDER BY embedding <=> %s::vector
+                    LIMIT %s
+                    """,
+                    (embedding, project_filter, embedding, limit),
+                )
+            else:
+                cur.execute(
+                    """
+                    SELECT path, content, 1 - (embedding <=> %s::vector) AS similarity
+                    FROM code_index
+                    ORDER BY embedding <=> %s::vector
+                    LIMIT %s
+                    """,
+                    (embedding, embedding, limit),
+                )
+
+            for row in cur.fetchall():
+                results.append({
+                    "type": "code",
+                    "path": row[0],
+                    "content": row[1][:500],  # Truncate for readability
+                    "similarity": float(row[2]),
+                })
+
+        if search_type in ("docs", "all"):
+            if project_filter:
+                cur.execute(
+                    """
+                    SELECT path, content, 1 - (embedding <=> %s::vector) AS similarity
+                    FROM doc_index
+                    WHERE project = %s
+                    ORDER BY embedding <=> %s::vector
+                    LIMIT %s
+                    """,
+                    (embedding, project_filter, embedding, limit),
+                )
+            else:
+                cur.execute(
+                    """
+                    SELECT path, content, 1 - (embedding <=> %s::vector) AS similarity
+                    FROM doc_index
+                    ORDER BY embedding <=> %s::vector
+                    LIMIT %s
+                    """,
+                    (embedding, embedding, limit),
+                )
+
+            for row in cur.fetchall():
+                results.append({
+                    "type": "docs",
+                    "path": row[0],
+                    "content": row[1][:500],
+                    "similarity": float(row[2]),
+                })
+
+    # Sort combined results by similarity
+    results.sort(key=lambda x: x["similarity"], reverse=True)
+    return {"success": True, "results": results[:limit]}
+
+
+def get_status(conn: psycopg.Connection, arguments: dict[str, Any]) -> dict[str, Any]:
+    """Get indexing status and statistics."""
+    project_filter = arguments.get("project")
+
+    with conn.cursor() as cur:
+        if project_filter:
+            cur.execute(
+                "SELECT project, COUNT(*) FROM code_index WHERE project = %s GROUP BY project",
+                (project_filter,),
+            )
+        else:
+            cur.execute("SELECT project, COUNT(*) FROM code_index GROUP BY project")
+        code_stats = [{"project": row[0], "count": row[1]} for row in cur.fetchall()]
+
+        if project_filter:
+            cur.execute(
+                "SELECT project, COUNT(*) FROM doc_index WHERE project = %s GROUP BY project",
+                (project_filter,),
+            )
+        else:
+            cur.execute("SELECT project, COUNT(*) FROM doc_index GROUP BY project")
+        doc_stats = [{"project": row[0], "count": row[1]} for row in cur.fetchall()]
+
+    return {"success": True, "code_index": code_stats, "doc_index": doc_stats}
+
+
+def clear_index(conn: psycopg.Connection, arguments: dict[str, Any]) -> dict[str, Any]:
+    """Clear index for a project or all."""
+    clear_type = arguments.get("type", "all")
+    project_filter = arguments.get("project")
+
+    with conn.cursor() as cur:
+        if clear_type in ("code", "all"):
+            if project_filter:
+                cur.execute("DELETE FROM code_index WHERE project = %s", (project_filter,))
+            else:
+                cur.execute("DELETE FROM code_index")
+
+        if clear_type in ("docs", "all"):
+            if project_filter:
+                cur.execute("DELETE FROM doc_index WHERE project = %s", (project_filter,))
+            else:
+                cur.execute("DELETE FROM doc_index")
+
+    conn.commit()
+    return {"success": True, "cleared": clear_type, "project": project_filter or "all"}
 
 
 async def main() -> None:

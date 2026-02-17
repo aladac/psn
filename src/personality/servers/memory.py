@@ -2,106 +2,88 @@
 """Memory MCP Server.
 
 Provides persistent memory via embeddings and vector search.
-Uses Ollama for embeddings and PostgreSQL/pgvector for storage.
+Uses sentence-transformers for embeddings and PostgreSQL/pgvector for storage.
 """
 import json
 import logging
 import os
-import subprocess
 from datetime import datetime
 from typing import Any
 from uuid import uuid4
 
+import psycopg
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import TextContent, Tool
+from pgvector.psycopg import register_vector
+from sentence_transformers import SentenceTransformer
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 server = Server("memory")
 
-JUNKPILE_HOST = os.environ.get("JUNKPILE_HOST", "junkpile")
-SSH_KEY = os.environ.get("SSH_KEY", "/Users/chi/.ssh/id_ed25519")
-EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL", "nomic-embed-text")
+# Configuration
+EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL", "nomic-ai/nomic-embed-text-v1.5")
+PG_HOST = os.environ.get("PG_HOST", "junkpile")
+PG_PORT = os.environ.get("PG_PORT", "5432")
 PG_DATABASE = os.environ.get("PG_DATABASE", "personality")
-PG_LOCAL = os.environ.get("PG_LOCAL", "false").lower() == "true"
-OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "")  # Empty = use junkpile via SSH
+PG_USER = os.environ.get("PG_USER", "chi")
+
+# Lazy-loaded model
+_model: SentenceTransformer | None = None
 
 
-def ssh_command(cmd: str) -> dict[str, Any]:
-    """Run a command on junkpile via SSH."""
-    ssh_cmd = ["ssh", "-i", SSH_KEY, JUNKPILE_HOST, cmd]
-    try:
-        result = subprocess.run(ssh_cmd, capture_output=True, text=True, timeout=120)
-        return {"success": result.returncode == 0, "stdout": result.stdout, "stderr": result.stderr}
-    except Exception as e:
-        return {"success": False, "error": str(e)}
+def get_model() -> SentenceTransformer:
+    """Get or initialize the embedding model."""
+    global _model
+    if _model is None:
+        logger.info(f"Loading embedding model: {EMBEDDING_MODEL}")
+        _model = SentenceTransformer(EMBEDDING_MODEL, trust_remote_code=True)
+        logger.info("Model loaded successfully")
+    return _model
 
 
-def get_embedding(text: str) -> list[float] | None:
-    """Get embedding for text via Ollama."""
-    data = json.dumps({"model": EMBEDDING_MODEL, "input": text})
-
-    if OLLAMA_HOST:
-        # Local or direct Ollama connection
-        import urllib.request
-        import urllib.error
-
-        url = f"http://{OLLAMA_HOST}/api/embed"
-        req = urllib.request.Request(url, data=data.encode(), headers={"Content-Type": "application/json"})
-        try:
-            with urllib.request.urlopen(req, timeout=60) as resp:
-                response = json.loads(resp.read().decode())
-                return response.get("embedding")
-        except (urllib.error.URLError, json.JSONDecodeError):
-            return None
-    else:
-        # Via SSH to junkpile
-        cmd = f"curl -s -X POST http://localhost:11434/api/embed -d '{data}'"
-        result = ssh_command(cmd)
-        if result.get("success") and result.get("stdout"):
-            try:
-                response = json.loads(result["stdout"])
-                return response.get("embedding")
-            except json.JSONDecodeError:
-                pass
-        return None
+def get_connection() -> psycopg.Connection:
+    """Get a PostgreSQL connection."""
+    conn = psycopg.connect(
+        host=PG_HOST,
+        port=PG_PORT,
+        dbname=PG_DATABASE,
+        user=PG_USER,
+    )
+    register_vector(conn)
+    return conn
 
 
-def run_psql(query: str) -> dict[str, Any]:
-    """Execute a PostgreSQL query locally or on junkpile."""
-    escaped_query = query.replace("'", "'\"'\"'")
-    cmd = f"psql -d {PG_DATABASE} -t -A -c '{escaped_query}'"
-
-    if PG_LOCAL:
-        # Run locally
-        try:
-            result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=120)
-            return {"success": result.returncode == 0, "stdout": result.stdout, "stderr": result.stderr}
-        except Exception as e:
-            return {"success": False, "error": str(e)}
-    else:
-        return ssh_command(cmd)
+def get_embedding(text: str) -> list[float]:
+    """Get embedding for text using sentence-transformers."""
+    model = get_model()
+    embedding = model.encode(text, convert_to_numpy=True)
+    return embedding.tolist()
 
 
-def ensure_schema() -> None:
+def ensure_schema(conn: psycopg.Connection) -> None:
     """Ensure the memories table exists."""
-    schema_sql = """
-    CREATE EXTENSION IF NOT EXISTS vector;
-    CREATE TABLE IF NOT EXISTS memories (
-        id UUID PRIMARY KEY,
-        subject TEXT NOT NULL,
-        content TEXT NOT NULL,
-        embedding vector(768),
-        metadata JSONB DEFAULT '{}',
-        created_at TIMESTAMP DEFAULT NOW(),
-        updated_at TIMESTAMP DEFAULT NOW()
-    );
-    CREATE INDEX IF NOT EXISTS memories_embedding_idx ON memories USING ivfflat (embedding vector_cosine_ops);
-    CREATE INDEX IF NOT EXISTS memories_subject_idx ON memories (subject);
-    """
-    run_psql(schema_sql)
+    with conn.cursor() as cur:
+        cur.execute("CREATE EXTENSION IF NOT EXISTS vector")
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS memories (
+                id UUID PRIMARY KEY,
+                subject TEXT NOT NULL,
+                content TEXT NOT NULL,
+                embedding vector(768),
+                metadata JSONB DEFAULT '{}',
+                created_at TIMESTAMP DEFAULT NOW(),
+                updated_at TIMESTAMP DEFAULT NOW()
+            )
+        """)
+        cur.execute("""
+            CREATE INDEX IF NOT EXISTS memories_embedding_idx
+            ON memories USING ivfflat (embedding vector_cosine_ops)
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS memories_subject_idx ON memories (subject)")
+    conn.commit()
 
 
 @server.list_tools()
@@ -169,84 +151,169 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
     """Handle tool calls."""
     logger.info(f"Tool called: {name} with {arguments}")
 
-    # Ensure schema exists
-    ensure_schema()
+    try:
+        with get_connection() as conn:
+            ensure_schema(conn)
 
-    if name == "store":
-        memory_id = str(uuid4())
-        subject = arguments["subject"]
-        content = arguments["content"]
-        metadata = json.dumps(arguments.get("metadata", {}))
-
-        # Get embedding
-        embedding = get_embedding(content)
-        if not embedding:
-            result = {"success": False, "error": "Failed to generate embedding"}
-        else:
-            vec_str = "[" + ",".join(map(str, embedding)) + "]"
-            sql = f"""
-                INSERT INTO memories (id, subject, content, embedding, metadata)
-                VALUES ('{memory_id}', '{subject}', '{content.replace("'", "''")}', '{vec_str}', '{metadata}')
-            """
-            db_result = run_psql(sql)
-            if db_result.get("success"):
-                result = {"success": True, "id": memory_id, "subject": subject}
+            if name == "store":
+                result = store_memory(conn, arguments)
+            elif name == "recall":
+                result = recall_memories(conn, arguments)
+            elif name == "search":
+                result = search_memories(conn, arguments)
+            elif name == "forget":
+                result = forget_memory(conn, arguments)
+            elif name == "list":
+                result = list_subjects(conn)
             else:
-                result = {"success": False, "error": db_result.get("stderr", "Unknown error")}
+                result = {"error": f"Unknown tool: {name}"}
 
-    elif name == "recall":
-        query = arguments["query"]
-        limit = arguments.get("limit", 5)
-
-        embedding = get_embedding(query)
-        if not embedding:
-            result = {"success": False, "error": "Failed to generate query embedding"}
-        else:
-            vec_str = "[" + ",".join(map(str, embedding)) + "]"
-            sql = f"""
-                SELECT id, subject, content, metadata,
-                       1 - (embedding <=> '{vec_str}') AS similarity
-                FROM memories
-            """
-            if arguments.get("subject"):
-                sql += f" WHERE subject = '{arguments['subject']}'"
-            sql += f" ORDER BY embedding <=> '{vec_str}' LIMIT {limit}"
-
-            db_result = run_psql(sql)
-            if db_result.get("success"):
-                result = {"success": True, "memories": db_result.get("stdout", "").strip().split("\n")}
-            else:
-                result = {"success": False, "error": db_result.get("stderr")}
-
-    elif name == "search":
-        sql = "SELECT id, subject, content, created_at FROM memories"
-        if arguments.get("subject"):
-            sql += f" WHERE subject LIKE '%{arguments['subject']}%'"
-        sql += f" ORDER BY created_at DESC LIMIT {arguments.get('limit', 20)}"
-
-        db_result = run_psql(sql)
-        result = {
-            "success": db_result.get("success", False),
-            "memories": db_result.get("stdout", "").strip().split("\n") if db_result.get("success") else [],
-        }
-
-    elif name == "forget":
-        sql = f"DELETE FROM memories WHERE id = '{arguments['id']}'"
-        db_result = run_psql(sql)
-        result = {"success": db_result.get("success", False), "deleted": arguments["id"]}
-
-    elif name == "list":
-        sql = "SELECT subject, COUNT(*) as count FROM memories GROUP BY subject ORDER BY count DESC"
-        db_result = run_psql(sql)
-        result = {
-            "success": db_result.get("success", False),
-            "subjects": db_result.get("stdout", "").strip().split("\n") if db_result.get("success") else [],
-        }
-
-    else:
-        result = {"error": f"Unknown tool: {name}"}
+    except Exception as e:
+        logger.exception(f"Error in tool {name}")
+        result = {"success": False, "error": str(e)}
 
     return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+
+def store_memory(conn: psycopg.Connection, arguments: dict[str, Any]) -> dict[str, Any]:
+    """Store a new memory."""
+    memory_id = str(uuid4())
+    subject = arguments["subject"]
+    content = arguments["content"]
+    metadata = arguments.get("metadata", {})
+
+    embedding = get_embedding(content)
+
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO memories (id, subject, content, embedding, metadata)
+            VALUES (%s, %s, %s, %s, %s)
+            """,
+            (memory_id, subject, content, embedding, json.dumps(metadata)),
+        )
+    conn.commit()
+
+    return {"success": True, "id": memory_id, "subject": subject}
+
+
+def recall_memories(conn: psycopg.Connection, arguments: dict[str, Any]) -> dict[str, Any]:
+    """Recall memories by semantic similarity."""
+    query = arguments["query"]
+    limit = arguments.get("limit", 5)
+    subject_filter = arguments.get("subject")
+
+    embedding = get_embedding(query)
+
+    with conn.cursor() as cur:
+        if subject_filter:
+            cur.execute(
+                """
+                SELECT id, subject, content, metadata,
+                       1 - (embedding <=> %s::vector) AS similarity
+                FROM memories
+                WHERE subject = %s
+                ORDER BY embedding <=> %s::vector
+                LIMIT %s
+                """,
+                (embedding, subject_filter, embedding, limit),
+            )
+        else:
+            cur.execute(
+                """
+                SELECT id, subject, content, metadata,
+                       1 - (embedding <=> %s::vector) AS similarity
+                FROM memories
+                ORDER BY embedding <=> %s::vector
+                LIMIT %s
+                """,
+                (embedding, embedding, limit),
+            )
+
+        rows = cur.fetchall()
+        memories = [
+            {
+                "id": str(row[0]),
+                "subject": row[1],
+                "content": row[2],
+                "metadata": row[3],
+                "similarity": float(row[4]),
+            }
+            for row in rows
+        ]
+
+    return {"success": True, "memories": memories}
+
+
+def search_memories(conn: psycopg.Connection, arguments: dict[str, Any]) -> dict[str, Any]:
+    """Search memories by subject."""
+    subject_filter = arguments.get("subject")
+    limit = arguments.get("limit", 20)
+
+    with conn.cursor() as cur:
+        if subject_filter:
+            cur.execute(
+                """
+                SELECT id, subject, content, created_at
+                FROM memories
+                WHERE subject LIKE %s
+                ORDER BY created_at DESC
+                LIMIT %s
+                """,
+                (f"%{subject_filter}%", limit),
+            )
+        else:
+            cur.execute(
+                """
+                SELECT id, subject, content, created_at
+                FROM memories
+                ORDER BY created_at DESC
+                LIMIT %s
+                """,
+                (limit,),
+            )
+
+        rows = cur.fetchall()
+        memories = [
+            {
+                "id": str(row[0]),
+                "subject": row[1],
+                "content": row[2],
+                "created_at": row[3].isoformat() if row[3] else None,
+            }
+            for row in rows
+        ]
+
+    return {"success": True, "memories": memories}
+
+
+def forget_memory(conn: psycopg.Connection, arguments: dict[str, Any]) -> dict[str, Any]:
+    """Delete a memory by ID."""
+    memory_id = arguments["id"]
+
+    with conn.cursor() as cur:
+        cur.execute("DELETE FROM memories WHERE id = %s", (memory_id,))
+        deleted = cur.rowcount > 0
+    conn.commit()
+
+    return {"success": deleted, "deleted": memory_id if deleted else None}
+
+
+def list_subjects(conn: psycopg.Connection) -> dict[str, Any]:
+    """List all memory subjects with counts."""
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT subject, COUNT(*) as count
+            FROM memories
+            GROUP BY subject
+            ORDER BY count DESC
+            """
+        )
+        rows = cur.fetchall()
+        subjects = [f"{row[0]}|{row[1]}" for row in rows]
+
+    return {"success": True, "subjects": subjects}
 
 
 async def main() -> None:

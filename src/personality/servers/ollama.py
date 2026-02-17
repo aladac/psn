@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 """Ollama MCP Server.
 
-Provides embedding and generation capabilities via Ollama on junkpile.
+Provides embedding and generation capabilities via Ollama.
+Uses httpx for HTTP communication.
 """
 import json
 import logging
 import os
-import subprocess
 from typing import Any
 
+import httpx
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import TextContent, Tool
@@ -18,30 +19,12 @@ logger = logging.getLogger(__name__)
 
 server = Server("ollama")
 
-JUNKPILE_HOST = os.environ.get("JUNKPILE_HOST", "junkpile")
-SSH_KEY = os.environ.get("SSH_KEY", "/Users/chi/.ssh/id_ed25519")
-OLLAMA_PORT = 11434
+OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://junkpile:11434")
 
 
-def run_ollama_api(endpoint: str, data: dict[str, Any] | None = None) -> dict[str, Any]:
-    """Call Ollama API on junkpile via SSH tunnel."""
-    if data:
-        curl_cmd = f"curl -s -X POST http://localhost:{OLLAMA_PORT}{endpoint} -d '{json.dumps(data)}'"
-    else:
-        curl_cmd = f"curl -s http://localhost:{OLLAMA_PORT}{endpoint}"
-
-    ssh_cmd = ["ssh", "-i", SSH_KEY, JUNKPILE_HOST, curl_cmd]
-    try:
-        result = subprocess.run(ssh_cmd, capture_output=True, text=True, timeout=300)
-        if result.returncode == 0:
-            return {"success": True, "data": json.loads(result.stdout) if result.stdout else {}}
-        return {"success": False, "error": result.stderr}
-    except json.JSONDecodeError:
-        return {"success": True, "data": result.stdout}
-    except subprocess.TimeoutExpired:
-        return {"success": False, "error": "Request timed out"}
-    except Exception as e:
-        return {"success": False, "error": str(e)}
+def get_client() -> httpx.Client:
+    """Get an httpx client configured for Ollama."""
+    return httpx.Client(base_url=OLLAMA_HOST, timeout=300.0)
 
 
 @server.list_tools()
@@ -100,28 +83,52 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
     """Handle tool calls."""
     logger.info(f"Tool called: {name} with {arguments}")
 
-    if name == "embed":
-        model = arguments.get("model", "nomic-embed-text")
-        result = run_ollama_api("/api/embeddings", {"model": model, "prompt": arguments["text"]})
+    try:
+        with get_client() as client:
+            if name == "embed":
+                model = arguments.get("model", "nomic-embed-text")
+                response = client.post(
+                    "/api/embed",
+                    json={"model": model, "input": arguments["text"]},
+                )
+                response.raise_for_status()
+                result = {"success": True, "data": response.json()}
 
-    elif name == "generate":
-        result = run_ollama_api(
-            "/api/generate",
-            {
-                "model": arguments["model"],
-                "prompt": arguments["prompt"],
-                "stream": arguments.get("stream", False),
-            },
-        )
+            elif name == "generate":
+                response = client.post(
+                    "/api/generate",
+                    json={
+                        "model": arguments["model"],
+                        "prompt": arguments["prompt"],
+                        "stream": arguments.get("stream", False),
+                    },
+                )
+                response.raise_for_status()
+                result = {"success": True, "data": response.json()}
 
-    elif name == "models":
-        result = run_ollama_api("/api/tags")
+            elif name == "models":
+                response = client.get("/api/tags")
+                response.raise_for_status()
+                result = {"success": True, "data": response.json()}
 
-    elif name == "pull":
-        result = run_ollama_api("/api/pull", {"name": arguments["model"]})
+            elif name == "pull":
+                response = client.post(
+                    "/api/pull",
+                    json={"name": arguments["model"]},
+                )
+                response.raise_for_status()
+                result = {"success": True, "data": response.json()}
 
-    else:
-        result = {"error": f"Unknown tool: {name}"}
+            else:
+                result = {"error": f"Unknown tool: {name}"}
+
+    except httpx.HTTPStatusError as e:
+        result = {"success": False, "error": f"HTTP {e.response.status_code}: {e.response.text}"}
+    except httpx.RequestError as e:
+        result = {"success": False, "error": str(e)}
+    except Exception as e:
+        logger.exception(f"Error in tool {name}")
+        result = {"success": False, "error": str(e)}
 
     return [TextContent(type="text", text=json.dumps(result, indent=2))]
 
