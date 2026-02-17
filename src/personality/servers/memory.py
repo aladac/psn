@@ -24,7 +24,9 @@ server = Server("memory")
 JUNKPILE_HOST = os.environ.get("JUNKPILE_HOST", "junkpile")
 SSH_KEY = os.environ.get("SSH_KEY", "/Users/chi/.ssh/id_ed25519")
 EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL", "nomic-embed-text")
-PG_DATABASE = "personality"
+PG_DATABASE = os.environ.get("PG_DATABASE", "personality")
+PG_LOCAL = os.environ.get("PG_LOCAL", "false").lower() == "true"
+OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "")  # Empty = use junkpile via SSH
 
 
 def ssh_command(cmd: str) -> dict[str, Any]:
@@ -38,25 +40,49 @@ def ssh_command(cmd: str) -> dict[str, Any]:
 
 
 def get_embedding(text: str) -> list[float] | None:
-    """Get embedding for text via Ollama on junkpile."""
+    """Get embedding for text via Ollama."""
     data = json.dumps({"model": EMBEDDING_MODEL, "prompt": text})
-    cmd = f"curl -s -X POST http://localhost:11434/api/embeddings -d '{data}'"
-    result = ssh_command(cmd)
 
-    if result.get("success") and result.get("stdout"):
+    if OLLAMA_HOST:
+        # Local or direct Ollama connection
+        import urllib.request
+        import urllib.error
+
+        url = f"http://{OLLAMA_HOST}/api/embeddings"
+        req = urllib.request.Request(url, data=data.encode(), headers={"Content-Type": "application/json"})
         try:
-            response = json.loads(result["stdout"])
-            return response.get("embedding")
-        except json.JSONDecodeError:
-            pass
-    return None
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                response = json.loads(resp.read().decode())
+                return response.get("embedding")
+        except (urllib.error.URLError, json.JSONDecodeError):
+            return None
+    else:
+        # Via SSH to junkpile
+        cmd = f"curl -s -X POST http://localhost:11434/api/embeddings -d '{data}'"
+        result = ssh_command(cmd)
+        if result.get("success") and result.get("stdout"):
+            try:
+                response = json.loads(result["stdout"])
+                return response.get("embedding")
+            except json.JSONDecodeError:
+                pass
+        return None
 
 
 def run_psql(query: str) -> dict[str, Any]:
-    """Execute a PostgreSQL query on junkpile."""
+    """Execute a PostgreSQL query locally or on junkpile."""
     escaped_query = query.replace("'", "'\"'\"'")
     cmd = f"psql -d {PG_DATABASE} -t -A -c '{escaped_query}'"
-    return ssh_command(cmd)
+
+    if PG_LOCAL:
+        # Run locally
+        try:
+            result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=120)
+            return {"success": result.returncode == 0, "stdout": result.stdout, "stderr": result.stderr}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+    else:
+        return ssh_command(cmd)
 
 
 def ensure_schema() -> None:

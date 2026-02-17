@@ -1,0 +1,29 @@
+{
+  "description": "PSN hooks for tracking file reads and enforcing read-before-write",
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "psn hooks post-tool-use track-read",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "psn hooks pre-tool-use require-read",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,11 +1,10 @@
 #!/bin/bash
 # PSN Reinstall Script
-# Updates version, rebuilds via Homebrew, syncs plugin and marketplace
+# Updates version, reinstalls via uv, syncs plugin and marketplace
 set -euo pipefail
 
 PSN_ROOT="/Users/chi/Projects/psn"
 MARKETPLACE="/Users/chi/.claude/plugins/marketplaces/saiden"
-BREW_TAP="/opt/homebrew/Library/Taps/saiden-dev/homebrew-tap"
 
 cd "$PSN_ROOT"
 
@@ -59,21 +58,13 @@ if git status | grep -q "Your branch is ahead"; then
 fi
 
 echo ""
-echo "=== Update Homebrew Tap ==="
-cd "$BREW_TAP"
-git fetch origin
-git reset --hard origin/main
-echo "Tap updated."
-
-echo ""
-echo "=== Reinstall via Homebrew ==="
-brew uninstall psn 2>/dev/null || true
-rm -f /opt/homebrew/bin/psn
-HOMEBREW_NO_INSTALL_CLEANUP=1 brew install --HEAD saiden-dev/tap/psn
+echo "=== Reinstall via uv ==="
+cd "$PSN_ROOT"
+uv pip install --system --break-system-packages -e .
 
 echo ""
 echo "=== Verify Installation ==="
-/opt/homebrew/bin/psn --version
+psn --version
 
 echo ""
 echo "=== Update Plugin (local) ==="

@@ -21,27 +21,43 @@ server = Server("postgres")
 JUNKPILE_HOST = os.environ.get("JUNKPILE_HOST", "junkpile")
 SSH_KEY = os.environ.get("SSH_KEY", "/Users/chi/.ssh/id_ed25519")
 PG_DATABASE = os.environ.get("PG_DATABASE", "personality")
+PG_LOCAL = os.environ.get("PG_LOCAL", "false").lower() == "true"
 
 
 def run_psql(query: str, database: str | None = None) -> dict[str, Any]:
-    """Execute a PostgreSQL query on junkpile via SSH."""
+    """Execute a PostgreSQL query locally or on junkpile via SSH."""
     db = database or PG_DATABASE
-    # Use psql with JSON output where possible, run as postgres user
     escaped_query = query.replace('"', '\\"').replace("'", "'\\''")
-    psql_cmd = f"sudo -u postgres psql -d {db} -t -A -c \"{escaped_query}\""
-    ssh_cmd = ["ssh", "-i", SSH_KEY, JUNKPILE_HOST, psql_cmd]
 
-    try:
-        result = subprocess.run(ssh_cmd, capture_output=True, text=True, timeout=60)
-        return {
-            "success": result.returncode == 0,
-            "output": result.stdout.strip(),
-            "error": result.stderr.strip() if result.stderr else None,
-        }
-    except subprocess.TimeoutExpired:
-        return {"success": False, "error": "Query timed out"}
-    except Exception as e:
-        return {"success": False, "error": str(e)}
+    if PG_LOCAL:
+        # Run locally
+        psql_cmd = f'psql -d {db} -t -A -c "{escaped_query}"'
+        try:
+            result = subprocess.run(psql_cmd, shell=True, capture_output=True, text=True, timeout=60)
+            return {
+                "success": result.returncode == 0,
+                "output": result.stdout.strip(),
+                "error": result.stderr.strip() if result.stderr else None,
+            }
+        except subprocess.TimeoutExpired:
+            return {"success": False, "error": "Query timed out"}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+    else:
+        # Via SSH to junkpile
+        psql_cmd = f"sudo -u postgres psql -d {db} -t -A -c \"{escaped_query}\""
+        ssh_cmd = ["ssh", "-i", SSH_KEY, JUNKPILE_HOST, psql_cmd]
+        try:
+            result = subprocess.run(ssh_cmd, capture_output=True, text=True, timeout=60)
+            return {
+                "success": result.returncode == 0,
+                "output": result.stdout.strip(),
+                "error": result.stderr.strip() if result.stderr else None,
+            }
+        except subprocess.TimeoutExpired:
+            return {"success": False, "error": "Query timed out"}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
 
 
 @server.list_tools()
