@@ -47,7 +47,7 @@
       "args": ["mcp", "memory"],
       "env": {
         "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin",
-        "EMBEDDING_MODEL": "nomic-embed-text"
+        "EMBEDDING_MODEL": "nomic-ai/nomic-embed-text-v1.5"
       }
     },
     "indexer": {
@@ -55,7 +55,7 @@
       "args": ["mcp", "indexer"],
       "env": {
         "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin",
-        "EMBEDDING_MODEL": "nomic-embed-text"
+        "EMBEDDING_MODEL": "nomic-ai/nomic-embed-text-v1.5"
       }
     },
     "tts": {
