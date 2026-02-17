@@ -11,8 +11,8 @@
     "args": ["mcp", "docker-remote"],
     "env": {
       "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin",
-      "JUNKPILE_HOST": "${JUNKPILE_HOST}",
-      "SSH_KEY": "${SSH_KEY}"
+      "JUNKPILE_HOST": "junkpile",
+      "SSH_KEY": "/Users/chi/.ssh/id_ed25519"
     }
   },
   "ollama": {
@@ -20,8 +20,8 @@
     "args": ["mcp", "ollama"],
     "env": {
       "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin",
-      "JUNKPILE_HOST": "${JUNKPILE_HOST}",
-      "SSH_KEY": "${SSH_KEY}"
+      "JUNKPILE_HOST": "junkpile",
+      "SSH_KEY": "/Users/chi/.ssh/id_ed25519"
     }
   },
   "postgres": {
@@ -29,8 +29,8 @@
     "args": ["mcp", "postgres"],
     "env": {
       "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin",
-      "PG_HOST": "${PG_HOST}",
-      "PG_DATABASE": "${PG_DATABASE}"
+      "PG_HOST": "localhost",
+      "PG_DATABASE": "personality"
     }
   },
   "sqlite": {
@@ -45,9 +45,9 @@
     "args": ["mcp", "memory"],
     "env": {
       "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin",
-      "EMBEDDING_MODEL": "${EMBEDDING_MODEL}",
-      "PG_HOST": "${PG_HOST}",
-      "PG_DATABASE": "${PG_DATABASE}"
+      "EMBEDDING_MODEL": "nomic-ai/nomic-embed-text-v1.5",
+      "PG_HOST": "localhost",
+      "PG_DATABASE": "personality"
     }
   },
   "indexer": {
@@ -55,9 +55,9 @@
     "args": ["mcp", "indexer"],
     "env": {
       "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin",
-      "EMBEDDING_MODEL": "${EMBEDDING_MODEL}",
-      "PG_HOST": "${PG_HOST}",
-      "PG_DATABASE": "${PG_DATABASE}"
+      "EMBEDDING_MODEL": "nomic-ai/nomic-embed-text-v1.5",
+      "PG_HOST": "localhost",
+      "PG_DATABASE": "personality"
     }
   },
   "tts": {
