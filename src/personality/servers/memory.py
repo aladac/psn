@@ -41,14 +41,14 @@ def ssh_command(cmd: str) -> dict[str, Any]:
 
 def get_embedding(text: str) -> list[float] | None:
     """Get embedding for text via Ollama."""
-    data = json.dumps({"model": EMBEDDING_MODEL, "prompt": text})
+    data = json.dumps({"model": EMBEDDING_MODEL, "input": text})
 
     if OLLAMA_HOST:
         # Local or direct Ollama connection
         import urllib.request
         import urllib.error
 
-        url = f"http://{OLLAMA_HOST}/api/embeddings"
+        url = f"http://{OLLAMA_HOST}/api/embed"
         req = urllib.request.Request(url, data=data.encode(), headers={"Content-Type": "application/json"})
         try:
             with urllib.request.urlopen(req, timeout=60) as resp:
@@ -58,7 +58,7 @@ def get_embedding(text: str) -> list[float] | None:
             return None
     else:
         # Via SSH to junkpile
-        cmd = f"curl -s -X POST http://localhost:11434/api/embeddings -d '{data}'"
+        cmd = f"curl -s -X POST http://localhost:11434/api/embed -d '{data}'"
         result = ssh_command(cmd)
         if result.get("success") and result.get("stdout"):
             try:
