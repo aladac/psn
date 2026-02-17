@@ -74,12 +74,21 @@ git pull --rebase 2>/dev/null || echo "Already up to date"
 echo ""
 echo "=== Update Marketplace ==="
 cd "$MARKETPLACE"
-git fetch origin
 git pull --rebase origin main 2>/dev/null || echo "Already up to date"
 
-# Update submodules (psn, browse)
-git submodule update --remote --merge
-echo "Marketplace updated."
+# Sync plugin files (no submodules)
+rm -rf plugins/psn
+cp -r "$PSN_ROOT/.claude-plugin" plugins/psn
+
+# Commit and push if changed
+if ! git diff --quiet; then
+    git add plugins/psn
+    git commit -m "Sync psn plugin $NEW_VERSION"
+    git push
+    echo "Marketplace updated."
+else
+    echo "Marketplace already up to date."
+fi
 
 echo ""
 echo "=== Done ==="
