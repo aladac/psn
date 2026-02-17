@@ -1,0 +1,70 @@
+{
+  "docker-local": {
+    "command": "psn",
+    "args": ["mcp", "docker-local"],
+    "env": {
+      "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+    }
+  },
+  "docker-remote": {
+    "command": "psn",
+    "args": ["mcp", "docker-remote"],
+    "env": {
+      "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin",
+      "JUNKPILE_HOST": "${JUNKPILE_HOST}",
+      "SSH_KEY": "${SSH_KEY}"
+    }
+  },
+  "ollama": {
+    "command": "psn",
+    "args": ["mcp", "ollama"],
+    "env": {
+      "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin",
+      "JUNKPILE_HOST": "${JUNKPILE_HOST}",
+      "SSH_KEY": "${SSH_KEY}"
+    }
+  },
+  "postgres": {
+    "command": "psn",
+    "args": ["mcp", "postgres"],
+    "env": {
+      "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin",
+      "PG_HOST": "${PG_HOST}",
+      "PG_DATABASE": "${PG_DATABASE}"
+    }
+  },
+  "sqlite": {
+    "command": "psn",
+    "args": ["mcp", "sqlite"],
+    "env": {
+      "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+    }
+  },
+  "memory": {
+    "command": "psn",
+    "args": ["mcp", "memory"],
+    "env": {
+      "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin",
+      "EMBEDDING_MODEL": "${EMBEDDING_MODEL}",
+      "PG_HOST": "${PG_HOST}",
+      "PG_DATABASE": "${PG_DATABASE}"
+    }
+  },
+  "indexer": {
+    "command": "psn",
+    "args": ["mcp", "indexer"],
+    "env": {
+      "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin",
+      "EMBEDDING_MODEL": "${EMBEDDING_MODEL}",
+      "PG_HOST": "${PG_HOST}",
+      "PG_DATABASE": "${PG_DATABASE}"
+    }
+  },
+  "tts": {
+    "command": "psn",
+    "args": ["mcp", "tts"],
+    "env": {
+      "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+    }
+  }
+}
