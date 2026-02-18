@@ -261,6 +261,254 @@ def clear_active() -> None:
     console.print("[green]Active cart cleared.[/green]")
 
 
+@app.command("import-memories")
+def import_memories(
+    path: str = typer.Argument(None, help="Path to .pcart file (default: active cart)"),
+    dry_run: bool = typer.Option(False, "--dry-run", "-n", help="Preview without importing"),
+    filter_prefix: str = typer.Option(None, "--filter", "-f", help="Only import subjects matching prefix"),
+) -> None:
+    """Import training memories from a pcart into the vector memory database."""
+    import zipfile
+
+    import psycopg
+    import yaml
+    from pgvector.psycopg import register_vector
+    from sentence_transformers import SentenceTransformer
+
+    from personality.config import get_config
+
+    registry = get_registry()
+
+    # Determine pcart path
+    if path:
+        pcart_path = Path(path)
+        if not pcart_path.exists():
+            # Try as tag name
+            pcart_path = registry.carts_dir / f"{path}.pcart"
+        if not pcart_path.exists():
+            console.print(f"[red]Cart not found:[/red] {path}")
+            raise typer.Exit(1)
+    else:
+        cart = registry.get_active()
+        if not cart or not cart.path:
+            console.print("[yellow]No active cart. Specify a path or tag.[/yellow]")
+            raise typer.Exit(1)
+        pcart_path = cart.path
+
+    console.print(f"[dim]Source:[/dim] {pcart_path}")
+
+    # Read pcart contents
+    try:
+        with zipfile.ZipFile(pcart_path, "r") as zf:
+            if "persona.yml" not in zf.namelist():
+                console.print("[red]Invalid pcart: missing persona.yml[/red]")
+                raise typer.Exit(1)
+
+            persona_yaml = zf.read("persona.yml").decode("utf-8")
+            persona_data = yaml.safe_load(persona_yaml) or {}
+
+            # Also read preferences if available
+            prefs_data = {}
+            if "preferences.yml" in zf.namelist():
+                prefs_yaml = zf.read("preferences.yml").decode("utf-8")
+                prefs_data = yaml.safe_load(prefs_yaml) or {}
+    except zipfile.BadZipFile:
+        console.print(f"[red]Invalid ZIP file:[/red] {pcart_path}")
+        raise typer.Exit(1) from None
+
+    tag = persona_data.get("tag", pcart_path.stem)
+    version = str(persona_data.get("version", ""))
+    memories = persona_data.get("memories", [])
+
+    # Apply filter
+    if filter_prefix:
+        memories = [m for m in memories if m.get("subject", "").startswith(filter_prefix)]
+
+    console.print(f"[dim]Cart:[/dim] {tag} v{version}")
+    console.print(f"[dim]Memories:[/dim] {len(memories)}")
+
+    if not memories:
+        console.print("[yellow]No memories to import.[/yellow]")
+        raise typer.Exit(0)
+
+    if dry_run:
+        console.print("\n[bold yellow]DRY RUN - No changes will be made[/bold yellow]\n")
+        table = Table(title="Memories to Import")
+        table.add_column("Subject", style="cyan")
+        table.add_column("Content Preview")
+
+        for mem in memories[:20]:  # Show first 20
+            subject = mem.get("subject", "?")
+            content = str(mem.get("content", ""))
+            preview = content[:50] + "..." if len(content) > 50 else content
+            table.add_row(subject, preview)
+
+        if len(memories) > 20:
+            table.add_row("...", f"[dim]and {len(memories) - 20} more[/dim]")
+
+        console.print(table)
+        raise typer.Exit(0)
+
+    # Connect to database
+    cfg = get_config().postgres
+    try:
+        conn = psycopg.connect(
+            host=cfg.host,
+            port=cfg.port,
+            dbname=cfg.database,
+            user=cfg.user,
+        )
+        register_vector(conn)
+    except Exception as e:
+        console.print(f"[red]Database connection failed:[/red] {e}")
+        raise typer.Exit(1) from None
+
+    # Ensure schema and get/create cart
+    with conn.cursor() as cur:
+        cur.execute("CREATE EXTENSION IF NOT EXISTS vector")
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS carts (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                tag TEXT UNIQUE NOT NULL,
+                version TEXT,
+                name TEXT,
+                type TEXT,
+                tagline TEXT,
+                source TEXT,
+                pcart_path TEXT,
+                created_at TIMESTAMP DEFAULT NOW(),
+                updated_at TIMESTAMP DEFAULT NOW()
+            )
+        """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS memories (
+                id UUID PRIMARY KEY,
+                cart_id UUID REFERENCES carts(id) ON DELETE CASCADE,
+                subject TEXT NOT NULL,
+                content TEXT NOT NULL,
+                embedding vector(768),
+                metadata JSONB DEFAULT '{}',
+                created_at TIMESTAMP DEFAULT NOW(),
+                updated_at TIMESTAMP DEFAULT NOW()
+            )
+        """)
+
+        # Migration: add cart_id column if missing
+        cur.execute("""
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'memories' AND column_name = 'cart_id'
+        """)
+        if not cur.fetchone():
+            console.print("[dim]Migrating: adding cart_id column...[/dim]")
+            cur.execute("ALTER TABLE memories ADD COLUMN cart_id UUID REFERENCES carts(id) ON DELETE CASCADE")
+            conn.commit()
+
+        cur.execute(
+            "CREATE INDEX IF NOT EXISTS memories_cart_id_idx ON memories (cart_id)"
+        )
+        conn.commit()
+
+        # Get or create cart
+        cur.execute("SELECT id FROM carts WHERE tag = %s", (tag,))
+        row = cur.fetchone()
+        if row:
+            cart_id = str(row[0])
+            console.print(f"[dim]Using existing cart:[/dim] {cart_id[:8]}...")
+        else:
+            from uuid import uuid4
+            cart_id = str(uuid4())
+            identity = prefs_data.get("identity", {})
+            cur.execute(
+                """
+                INSERT INTO carts (id, tag, version, name, type, tagline, source, pcart_path)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    cart_id,
+                    tag,
+                    version,
+                    identity.get("name"),
+                    identity.get("type"),
+                    identity.get("tagline"),
+                    identity.get("source"),
+                    str(pcart_path),
+                ),
+            )
+            conn.commit()
+            console.print(f"[green]Registered cart:[/green] {cart_id[:8]}...")
+
+    # Load embedding model
+    console.print("[dim]Loading embedding model...[/dim]")
+    try:
+        ollama_cfg = get_config().ollama
+        model = SentenceTransformer(ollama_cfg.embedding_model, trust_remote_code=True)
+    except Exception as e:
+        console.print(f"[red]Failed to load embedding model:[/red] {e}")
+        raise typer.Exit(1) from None
+
+    # Import memories
+    imported = 0
+    skipped = 0
+    failed = 0
+
+    with console.status("[bold green]Importing memories...") as status:
+        for i, mem in enumerate(memories):
+            subject = mem.get("subject", "")
+            content = mem.get("content", "")
+
+            if isinstance(content, list):
+                content = ", ".join(str(x) for x in content)
+            content = str(content)
+
+            if not subject or not content:
+                skipped += 1
+                continue
+
+            status.update(f"[bold green]Importing {i + 1}/{len(memories)}: {subject[:30]}...")
+
+            try:
+                # Check for duplicate
+                with conn.cursor() as cur:
+                    cur.execute(
+                        "SELECT id FROM memories WHERE cart_id = %s AND subject = %s AND content = %s",
+                        (cart_id, subject, content),
+                    )
+                    if cur.fetchone():
+                        skipped += 1
+                        continue
+
+                # Generate embedding
+                embedding = model.encode(content, convert_to_numpy=True).tolist()
+
+                # Insert memory
+                from uuid import uuid4
+                memory_id = str(uuid4())
+                metadata = {"source": "pcart-import", "original_index": i}
+
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """
+                        INSERT INTO memories (id, cart_id, subject, content, embedding, metadata)
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                        """,
+                        (memory_id, cart_id, subject, content, embedding, json.dumps(metadata)),
+                    )
+                conn.commit()
+                imported += 1
+
+            except Exception as e:
+                console.print(f"[red]Failed:[/red] {subject}: {e}")
+                failed += 1
+
+    conn.close()
+
+    console.print(f"\n[bold]Import complete:[/bold]")
+    console.print(f"  [green]Imported:[/green] {imported}")
+    console.print(f"  [yellow]Skipped:[/yellow] {skipped}")
+    if failed:
+        console.print(f"  [red]Failed:[/red] {failed}")
+
+
 def _find_training_file(name: str) -> Path | None:
     """Find a training file by name."""
     # Check if it's a path
