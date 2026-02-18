@@ -4,7 +4,7 @@ import typer
 from rich.console import Console
 
 from personality import __version__
-from personality.cli import cart, context, decision, hooks, index, knowledge, mcp, memory, persona, tts
+from personality.cli import cart, config, context, decision, hooks, index, knowledge, mcp, memory, persona, tts
 
 app = typer.Typer(
     name="psn",
@@ -13,6 +13,7 @@ app = typer.Typer(
 )
 console = Console()
 
+app.add_typer(config.app, name="config", help="Configuration management")
 app.add_typer(hooks.app, name="hooks", help="Claude Code hooks management")
 app.add_typer(context.app, name="context", help="Context tracking")
 app.add_typer(index.app, name="index", help="Code indexing")

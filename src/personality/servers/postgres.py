@@ -6,7 +6,6 @@ Uses psycopg for direct PostgreSQL connections.
 """
 import json
 import logging
-import os
 from typing import Any
 
 import psycopg
@@ -15,25 +14,22 @@ from mcp.server.stdio import stdio_server
 from mcp.types import TextContent, Tool
 from pgvector.psycopg import register_vector
 
+from personality.config import get_config
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 server = Server("postgres")
 
-# Configuration
-PG_HOST = os.environ.get("PG_HOST", "junkpile")
-PG_PORT = os.environ.get("PG_PORT", "5432")
-PG_DATABASE = os.environ.get("PG_DATABASE", "personality")
-PG_USER = os.environ.get("PG_USER", "chi")
-
 
 def get_connection(database: str | None = None) -> psycopg.Connection:
     """Get a PostgreSQL connection."""
+    cfg = get_config().postgres
     conn = psycopg.connect(
-        host=PG_HOST,
-        port=PG_PORT,
-        dbname=database or PG_DATABASE,
-        user=PG_USER,
+        host=cfg.host,
+        port=cfg.port,
+        dbname=database or cfg.database,
+        user=cfg.user,
     )
     register_vector(conn)
     return conn

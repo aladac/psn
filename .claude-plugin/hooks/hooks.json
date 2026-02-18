@@ -1,26 +1,145 @@
 {
-  "description": "PSN hooks for tracking file reads and enforcing read-before-write",
+  "description": "PSN hooks - all hook events logged to ~/.config/psn/hooks.jsonl",
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "psn hooks pre-tool-use",
+            "timeout": 5000
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "psn hooks post-tool-use",
+            "timeout": 5000
+          }
+        ]
+      },
       {
         "matcher": "Read",
         "hooks": [
           {
             "type": "command",
-            "command": "psn hooks post-tool-use track-read",
-            "timeout": 10
+            "command": "psn context track-read",
+            "timeout": 5000
           }
         ]
-      }
-    ],
-    "PreToolUse": [
+      },
       {
         "matcher": "Write|Edit",
         "hooks": [
           {
             "type": "command",
-            "command": "psn hooks pre-tool-use require-read",
-            "timeout": 10
+            "command": "psn index hook",
+            "timeout": 30000
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "psn hooks stop",
+            "timeout": 5000
+          },
+          {
+            "type": "command",
+            "command": "psn tts stop",
+            "timeout": 1000
+          },
+          {
+            "type": "command",
+            "command": "psn memory save",
+            "timeout": 5000
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "psn hooks subagent-stop",
+            "timeout": 5000
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "psn hooks session-start",
+            "timeout": 5000
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "psn hooks session-end",
+            "timeout": 5000
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "psn hooks user-prompt-submit",
+            "timeout": 5000
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "psn hooks pre-compact",
+            "timeout": 5000
+          },
+          {
+            "type": "command",
+            "command": "psn memory save",
+            "timeout": 5000
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "psn hooks notification",
+            "timeout": 5000
           }
         ]
       }

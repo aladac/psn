@@ -5,7 +5,6 @@ Manages Docker containers and images on junkpile (remote/AMD) via SSH.
 """
 import json
 import logging
-import os
 import subprocess
 from typing import Any
 
@@ -13,26 +12,26 @@ from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import TextContent, Tool
 
+from personality.config import get_config
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 server = Server("docker-remote")
 
-JUNKPILE_HOST = os.environ.get("JUNKPILE_HOST", "junkpile")
-SSH_KEY = os.environ.get("SSH_KEY", "/Users/chi/.ssh/id_ed25519")
-
 
 def run_remote_docker(*args: str) -> dict[str, Any]:
     """Run a docker command on junkpile via SSH."""
+    cfg = get_config().remote
     docker_cmd = " ".join(["docker", *args])
-    ssh_cmd = ["ssh", "-i", SSH_KEY, JUNKPILE_HOST, docker_cmd]
+    ssh_cmd = ["ssh", "-i", str(cfg.ssh_key_path), cfg.host, docker_cmd]
     try:
         result = subprocess.run(ssh_cmd, capture_output=True, text=True, timeout=120)
         return {
             "success": result.returncode == 0,
             "stdout": result.stdout,
             "stderr": result.stderr,
-            "host": JUNKPILE_HOST,
+            "host": cfg.host,
         }
     except subprocess.TimeoutExpired:
         return {"success": False, "error": "Command timed out"}

@@ -7,7 +7,6 @@ Uses sentence-transformers for embeddings and PostgreSQL/pgvector for storage.
 import hashlib
 import json
 import logging
-import os
 from pathlib import Path
 from typing import Any
 
@@ -18,17 +17,12 @@ from mcp.types import TextContent, Tool
 from pgvector.psycopg import register_vector
 from sentence_transformers import SentenceTransformer
 
+from personality.config import get_config
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 server = Server("indexer")
-
-# Configuration
-EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL", "nomic-ai/nomic-embed-text-v1.5")
-PG_HOST = os.environ.get("PG_HOST", "junkpile")
-PG_PORT = os.environ.get("PG_PORT", "5432")
-PG_DATABASE = os.environ.get("PG_DATABASE", "personality")
-PG_USER = os.environ.get("PG_USER", "chi")
 
 # File extensions to index
 CODE_EXTENSIONS = {".py", ".rs", ".rb", ".js", ".ts", ".go", ".java", ".c", ".cpp", ".h"}
@@ -42,19 +36,21 @@ def get_model() -> SentenceTransformer:
     """Get or initialize the embedding model."""
     global _model
     if _model is None:
-        logger.info(f"Loading embedding model: {EMBEDDING_MODEL}")
-        _model = SentenceTransformer(EMBEDDING_MODEL, trust_remote_code=True)
+        cfg = get_config().ollama
+        logger.info(f"Loading embedding model: {cfg.embedding_model}")
+        _model = SentenceTransformer(cfg.embedding_model, trust_remote_code=True)
         logger.info("Model loaded successfully")
     return _model
 
 
 def get_connection() -> psycopg.Connection:
     """Get a PostgreSQL connection."""
+    cfg = get_config().postgres
     conn = psycopg.connect(
-        host=PG_HOST,
-        port=PG_PORT,
-        dbname=PG_DATABASE,
-        user=PG_USER,
+        host=cfg.host,
+        port=cfg.port,
+        dbname=cfg.database,
+        user=cfg.user,
     )
     register_vector(conn)
     return conn

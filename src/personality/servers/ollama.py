@@ -6,7 +6,6 @@ Uses httpx for HTTP communication.
 """
 import json
 import logging
-import os
 from typing import Any
 
 import httpx
@@ -14,17 +13,18 @@ from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import TextContent, Tool
 
+from personality.config import get_config
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 server = Server("ollama")
 
-OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://junkpile:11434")
-
 
 def get_client() -> httpx.Client:
     """Get an httpx client configured for Ollama."""
-    return httpx.Client(base_url=OLLAMA_HOST, timeout=300.0)
+    cfg = get_config().ollama
+    return httpx.Client(base_url=cfg.url, timeout=300.0)
 
 
 @server.list_tools()
