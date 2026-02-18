@@ -1,5 +1,7 @@
 """Cart CLI commands."""
 
+import json
+import sys
 from pathlib import Path
 
 import typer
@@ -282,3 +284,43 @@ def _find_training_file(name: str) -> Path | None:
                 return f
 
     return None
+
+
+# Project to persona mapping (can be extended)
+PROJECT_PERSONA_MAP = {
+    "psn": "bt7274",
+    "personality": "bt7274",
+    "claude": "bt7274",
+}
+
+
+@app.command("hook-session-start")
+def hook_session_start() -> None:
+    """SessionStart hook: auto-switch persona based on project directory."""
+    try:
+        data = json.load(sys.stdin)
+        cwd = data.get("cwd", "")
+
+        if not cwd:
+            return
+
+        cwd_path = Path(cwd)
+        project_name = cwd_path.name.lower()
+
+        # Check if we have a mapping for this project
+        persona = PROJECT_PERSONA_MAP.get(project_name)
+
+        if persona:
+            registry = get_registry()
+            current = registry.get_active()
+
+            # Only switch if different from current
+            if current is None or current.tag.lower() != persona.lower():
+                try:
+                    cart = registry.switch_to(persona)
+                    print(json.dumps({"persona_switched": cart.tag}))
+                except FileNotFoundError:
+                    pass  # Persona not available
+
+    except (json.JSONDecodeError, KeyError):
+        pass

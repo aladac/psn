@@ -1,5 +1,7 @@
 """Decision CLI commands."""
 
+import json
+import sys
 from pathlib import Path
 
 import typer
@@ -282,3 +284,77 @@ def _print_decisions(decisions: list) -> None:
         )
 
     console.print(table)
+
+
+@app.command("hook")
+def hook_stop() -> None:
+    """Extract decisions from Stop hook (reads JSON from stdin)."""
+    try:
+        data = json.load(sys.stdin)
+        transcript_path = data.get("transcript_path")
+
+        if not transcript_path:
+            return
+
+        transcript = Path(transcript_path)
+        if not transcript.exists():
+            return
+
+        # Read recent transcript entries looking for decision patterns
+        lines = transcript.read_text().strip().split("\n")
+        recent = lines[-30:] if len(lines) > 30 else lines
+
+        service = get_service()
+        extracted = 0
+
+        for line in recent:
+            try:
+                entry = json.loads(line)
+                message = entry.get("message", "")
+                if isinstance(message, dict):
+                    message = message.get("text", "") or message.get("content", "")
+                if not isinstance(message, str):
+                    continue
+
+                # Look for decision patterns in assistant messages
+                if entry.get("type") == "assistant":
+                    lower = message.lower()
+
+                    # Decision indicators
+                    decision_patterns = [
+                        "i've decided to",
+                        "we should use",
+                        "the decision is to",
+                        "decided to use",
+                        "going with",
+                        "choosing to",
+                        "will implement",
+                        "recommendation is to",
+                    ]
+
+                    for pattern in decision_patterns:
+                        if pattern in lower:
+                            # Extract a title from the message
+                            idx = lower.find(pattern)
+                            relevant = message[idx : idx + 150].strip()
+
+                            # Clean up and create title
+                            title = relevant.split(".")[0].strip()
+                            if len(title) > 20 and len(title) < 120:
+                                service.record(
+                                    title=title,
+                                    context="Extracted from session transcript",
+                                    status=DecisionStatus.PROPOSED,
+                                    tags=["auto-extracted"],
+                                )
+                                extracted += 1
+                            break
+
+            except json.JSONDecodeError:
+                continue
+
+        if extracted > 0:
+            print(json.dumps({"decisions_extracted": extracted}))
+
+    except (json.JSONDecodeError, KeyError):
+        pass

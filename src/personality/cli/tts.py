@@ -1,8 +1,10 @@
 """TTS CLI commands."""
 
+import json
 import os
 import signal
 import subprocess
+import sys
 from pathlib import Path
 
 import typer
@@ -341,3 +343,63 @@ def list_character_voices() -> None:
         )
 
     console.print(table)
+
+
+@app.command("hook-notification")
+def hook_notification() -> None:
+    """Notification hook: speak notification text aloud."""
+    try:
+        data = json.load(sys.stdin)
+        message = data.get("message", "")
+
+        if not message:
+            return
+
+        # Check if TTS is enabled for active persona
+        try:
+            registry = CartRegistry()
+            cart = registry.get_active()
+            if cart and not cart.preferences.tts.enabled:
+                return  # TTS disabled for this persona
+        except Exception:
+            pass  # Continue with default if registry fails
+
+        # Stop any currently playing TTS
+        stop_current_tts()
+
+        voice = get_active_voice()
+
+        try:
+            import wave
+
+            from piper import PiperVoice
+
+            model_path = find_voice_path(voice)
+            if model_path is None:
+                return  # Voice not found, skip silently
+
+            config_path = model_path.with_suffix(".onnx.json")
+
+            piper_voice = PiperVoice.load(str(model_path), str(config_path))
+
+            DATA_DIR.mkdir(parents=True, exist_ok=True)
+            with wave.open(str(TTS_WAV_FILE), "wb") as wav_file:
+                piper_voice.synthesize_wav(message, wav_file)
+
+            # Use Popen to get PID for cancellation support
+            process = subprocess.Popen(["afplay", str(TTS_WAV_FILE)])
+            save_tts_pid(process.pid)
+
+            # Wait for playback to complete
+            process.wait()
+            clear_tts_pid()
+
+            print(json.dumps({"notification_spoken": True}))
+
+        except ImportError:
+            pass  # piper-tts not installed
+        except Exception:
+            clear_tts_pid()
+
+    except (json.JSONDecodeError, KeyError):
+        pass

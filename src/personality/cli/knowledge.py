@@ -1,5 +1,8 @@
 """Knowledge CLI commands."""
 
+import json
+import sys
+
 import typer
 from rich.console import Console
 from rich.table import Table
@@ -234,3 +237,82 @@ def _print_triples(triples: list) -> None:
         )
 
     console.print(table)
+
+
+@app.command("hook")
+def hook_stop() -> None:
+    """Extract knowledge from Stop hook (reads JSON from stdin)."""
+    try:
+        data = json.load(sys.stdin)
+        transcript_path = data.get("transcript_path")
+
+        if not transcript_path:
+            return
+
+        from pathlib import Path
+
+        transcript = Path(transcript_path)
+        if not transcript.exists():
+            return
+
+        # Read recent transcript entries looking for knowledge patterns
+        lines = transcript.read_text().strip().split("\n")
+        recent = lines[-20:] if len(lines) > 20 else lines
+
+        service = get_service()
+        extracted = 0
+
+        for line in recent:
+            try:
+                entry = json.loads(line)
+                message = entry.get("message", "")
+                if isinstance(message, dict):
+                    message = message.get("text", "") or message.get("content", "")
+                if not isinstance(message, str):
+                    continue
+
+                # Look for explicit knowledge statements
+                # Pattern: "X is Y", "X uses Y", "X has Y", etc.
+                text = message.strip()
+                lower = text.lower()
+
+                # Skip if too short or too long
+                if len(text) < 10 or len(text) > 200:
+                    continue
+
+                # Look for common knowledge patterns in user statements
+                if entry.get("type") == "user":
+                    patterns = [
+                        (" is a ", "is a"),
+                        (" is an ", "is an"),
+                        (" uses ", "uses"),
+                        (" prefers ", "prefers"),
+                        (" requires ", "requires"),
+                        (" has ", "has"),
+                    ]
+
+                    for pattern, predicate in patterns:
+                        if pattern in lower:
+                            parts = text.split(pattern, 1)
+                            if len(parts) == 2:
+                                subject = parts[0].strip()
+                                obj = parts[1].strip().rstrip(".")
+                                if subject and obj and len(subject) < 50 and len(obj) < 100:
+                                    service.add(
+                                        subject=subject,
+                                        predicate=predicate,
+                                        obj=obj,
+                                        source="session-hook",
+                                        confidence=0.7,
+                                    )
+                                    extracted += 1
+                            break
+
+            except json.JSONDecodeError:
+                continue
+
+        if extracted > 0:
+            print(json.dumps({"knowledge_extracted": extracted}))
+
+    except (json.JSONDecodeError, KeyError):
+        pass

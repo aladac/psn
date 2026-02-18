@@ -63,6 +63,16 @@
             "type": "command",
             "command": "psn memory save",
             "timeout": 5000
+          },
+          {
+            "type": "command",
+            "command": "psn knowledge hook",
+            "timeout": 10000
+          },
+          {
+            "type": "command",
+            "command": "psn decision hook",
+            "timeout": 10000
           }
         ]
       }
@@ -87,6 +97,11 @@
             "type": "command",
             "command": "psn hooks session-start",
             "timeout": 5000
+          },
+          {
+            "type": "command",
+            "command": "psn cart hook-session-start",
+            "timeout": 5000
           }
         ]
       }
@@ -99,6 +114,16 @@
             "type": "command",
             "command": "psn hooks session-end",
             "timeout": 5000
+          },
+          {
+            "type": "command",
+            "command": "psn context clear",
+            "timeout": 5000
+          },
+          {
+            "type": "command",
+            "command": "psn index sync",
+            "timeout": 30000
           }
         ]
       }
@@ -128,6 +153,11 @@
             "type": "command",
             "command": "psn memory save",
             "timeout": 5000
+          },
+          {
+            "type": "command",
+            "command": "psn memory hook-precompact",
+            "timeout": 10000
           }
         ]
       }
@@ -140,6 +170,11 @@
             "type": "command",
             "command": "psn hooks notification",
             "timeout": 5000
+          },
+          {
+            "type": "command",
+            "command": "psn tts hook-notification",
+            "timeout": 10000
           }
         ]
       }
