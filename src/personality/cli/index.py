@@ -346,7 +346,10 @@ def index_docs(
         import psycopg
         from personality.config import get_config
         cfg = get_config().postgres
-        conn = psycopg.connect(host=cfg.host, port=cfg.port, dbname=cfg.database, user=cfg.user, password=cfg.password)
+        conn = psycopg.connect(host=cfg.host, port=cfg.port, dbname=cfg.database, user=cfg.user)
+
+        # Ensure schema exists
+        indexer.ensure_schema(conn)
 
         indexed_chunks = 0
         error_count = 0
@@ -464,7 +467,10 @@ def index_code_cmd(
         import psycopg
         from personality.config import get_config
         cfg = get_config().postgres
-        conn = psycopg.connect(host=cfg.host, port=cfg.port, dbname=cfg.database, user=cfg.user, password=cfg.password)
+        conn = psycopg.connect(host=cfg.host, port=cfg.port, dbname=cfg.database, user=cfg.user)
+
+        # Ensure schema exists
+        indexer.ensure_schema(conn)
         ensure_symbols_table(conn)
 
         indexed_chunks = 0

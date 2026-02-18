@@ -31,7 +31,7 @@ class RemoteConfig(BaseModel):
 class PostgresConfig(BaseModel):
     """PostgreSQL configuration."""
 
-    host: str = Field(default="junkpile", description="PostgreSQL host")
+    host: str = Field(default="localhost", description="PostgreSQL host")
     port: int = Field(default=5432, description="PostgreSQL port")
     database: str = Field(default="personality", description="Default database name")
     user: str = Field(default="chi", description="PostgreSQL user")
@@ -40,7 +40,7 @@ class PostgresConfig(BaseModel):
 class OllamaConfig(BaseModel):
     """Ollama configuration."""
 
-    host: str = Field(default="junkpile", description="Ollama server host")
+    host: str = Field(default="localhost", description="Ollama server host")
     port: int = Field(default=11434, description="Ollama server port")
     embedding_model: str = Field(
         default="nomic-ai/nomic-embed-text-v1.5", description="Default embedding model"
@@ -142,14 +142,14 @@ ssh_key = "~/.ssh/id_ed25519"
 
 [postgres]
 # PostgreSQL connection settings
-host = "junkpile"
+host = "localhost"
 port = 5432
 database = "personality"
 user = "chi"
 
 [ollama]
 # Ollama server for embeddings and generation
-host = "junkpile"
+host = "localhost"
 port = 11434
 embedding_model = "nomic-ai/nomic-embed-text-v1.5"
 
