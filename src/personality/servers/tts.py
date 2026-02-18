@@ -23,7 +23,7 @@ server = Server("tts")
 
 # Default voice model
 DEFAULT_VOICE = "en_US-lessac-medium"
-PIPER_DATA_DIR = Path.home() / ".local" / "share" / "piper-tts"
+PIPER_DATA_DIR = Path.home() / ".local" / "share" / "psn"
 
 # Lazy-loaded piper components
 _piper_voice = None

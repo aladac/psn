@@ -1,7 +1,7 @@
 ## Session Guidelines
 
 - Use `AskUserQuestion` tool for interactive choices instead of listing options in text
-- Speak responses aloud using TTS when enabled for the active persona
+- TTS: Do NOT use TTS for the initial session greeting (MCP servers need time to initialize). Use TTS for subsequent responses when enabled for the active persona.
 - Maintain persona consistency throughout the session
 
 ## Commands

@@ -1,12 +1,15 @@
 """Indexing CLI commands with AST analysis."""
 
+import hashlib
 import json
 import sys
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 
 import typer
 from rich.console import Console
+from rich.progress import BarColumn, MofNCompleteColumn, Progress, SpinnerColumn, TaskProgressColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn
 from rich.table import Table
 
 from personality.analyzer import analyze_file, generate_symbol_id
@@ -14,16 +17,18 @@ from personality.analyzer import analyze_file, generate_symbol_id
 app = typer.Typer(invoke_without_command=True)
 console = Console()
 
+# File extensions (duplicated from indexer for CLI use)
+CODE_EXTENSIONS = {".py", ".rs", ".rb", ".js", ".ts", ".go", ".java", ".c", ".cpp", ".h"}
+DOC_EXTENSIONS = {".md", ".txt", ".rst", ".adoc"}
+
 
 def get_indexer():
     """Lazy import indexer module."""
-    sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "servers"))
-    import indexer
-
+    from personality.servers import indexer
     return indexer
 
 
-def ensure_symbols_table(indexer) -> None:
+def ensure_symbols_table(conn) -> None:
     """Ensure the symbols table exists."""
     sql = """
     CREATE TABLE IF NOT EXISTS symbols (
@@ -44,7 +49,6 @@ def ensure_symbols_table(indexer) -> None:
     CREATE INDEX IF NOT EXISTS symbols_name_idx ON symbols (name);
     CREATE INDEX IF NOT EXISTS symbols_kind_idx ON symbols (kind);
     CREATE INDEX IF NOT EXISTS symbols_project_idx ON symbols (project);
-    CREATE INDEX IF NOT EXISTS symbols_embedding_idx ON symbols USING ivfflat (embedding vector_cosine_ops);
 
     CREATE TABLE IF NOT EXISTS imports (
         id SERIAL PRIMARY KEY,
@@ -66,7 +70,9 @@ def ensure_symbols_table(indexer) -> None:
     CREATE INDEX IF NOT EXISTS calls_source_idx ON calls (source_path);
     CREATE INDEX IF NOT EXISTS calls_callee_idx ON calls (callee);
     """
-    indexer.run_psql(sql)
+    with conn.cursor() as cur:
+        cur.execute(sql)
+    conn.commit()
 
 
 @app.callback(invoke_without_command=True)
@@ -294,6 +300,292 @@ def index_hook() -> None:
 
     except Exception:
         pass
+
+
+@app.command("docs")
+def index_docs(
+    path: str = typer.Argument(".", help="Directory to index"),
+    project: str = typer.Option(None, "--project", "-p", help="Project name (default: directory name)"),
+    dry_run: bool = typer.Option(False, "--dry-run", "-n", help="Show files without indexing"),
+) -> None:
+    """Index documentation files (.md, .txt, .rst, .adoc) for semantic search."""
+    try:
+        indexer = get_indexer()
+        base_path = Path(path).expanduser().resolve()
+        project_name = project or base_path.name
+
+        if not base_path.exists():
+            console.print(f"[red]Path not found: {base_path}[/red]")
+            raise typer.Exit(1)
+
+        # Collect files to index
+        files_to_index = []
+        for file_path in base_path.rglob("*"):
+            if not file_path.is_file():
+                continue
+            if file_path.suffix.lower() not in DOC_EXTENSIONS:
+                continue
+            # Skip hidden directories
+            if any(p.startswith(".") for p in file_path.relative_to(base_path).parts):
+                continue
+            files_to_index.append(file_path)
+
+        if not files_to_index:
+            console.print("[yellow]No documentation files found[/yellow]")
+            raise typer.Exit(0)
+
+        if dry_run:
+            console.print(f"[bold]Would index {len(files_to_index)} documentation files:[/bold]")
+            for f in files_to_index[:20]:
+                console.print(f"  {f.relative_to(base_path)}")
+            if len(files_to_index) > 20:
+                console.print(f"  ... and {len(files_to_index) - 20} more")
+            raise typer.Exit(0)
+
+        # Get database connection
+        import psycopg
+        from personality.config import get_config
+        cfg = get_config().postgres
+        conn = psycopg.connect(host=cfg.host, port=cfg.port, dbname=cfg.database, user=cfg.user, password=cfg.password)
+
+        indexed_chunks = 0
+        error_count = 0
+        start_time = time.time()
+
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TaskProgressColumn(),
+            MofNCompleteColumn(),
+            TimeElapsedColumn(),
+            TimeRemainingColumn(),
+            console=console,
+        ) as progress:
+            task = progress.add_task(f"[cyan]Indexing docs ({project_name})", total=len(files_to_index))
+
+            for file_path in files_to_index:
+                try:
+                    content = file_path.read_text(errors="ignore")
+                    if len(content) < 10:
+                        progress.advance(task)
+                        continue
+
+                    # Chunk content
+                    chunks = list(indexer.chunk_content(content))
+                    for i, chunk in enumerate(chunks):
+                        chunk_id = hashlib.md5(f"{file_path}:{i}".encode()).hexdigest()
+                        embedding = indexer.get_embedding(chunk)
+
+                        with conn.cursor() as cur:
+                            cur.execute(
+                                """
+                                INSERT INTO doc_index (id, path, content, embedding, project)
+                                VALUES (%s, %s, %s, %s, %s)
+                                ON CONFLICT (id) DO UPDATE SET
+                                    content = EXCLUDED.content,
+                                    embedding = EXCLUDED.embedding,
+                                    indexed_at = NOW()
+                                """,
+                                (chunk_id, str(file_path), chunk, embedding, project_name),
+                            )
+                        conn.commit()
+                        indexed_chunks += 1
+
+                except Exception as e:
+                    error_count += 1
+                    progress.console.print(f"[red]✗[/red] {file_path.name}: {e}")
+
+                progress.advance(task)
+
+        conn.close()
+        elapsed = time.time() - start_time
+        console.print(f"\n[green]✓[/green] Indexed [bold]{indexed_chunks}[/bold] chunks from [bold]{len(files_to_index)}[/bold] files in [bold]{elapsed:.1f}s[/bold]")
+        if error_count:
+            console.print(f"[yellow]⚠[/yellow] {error_count} errors")
+        console.print(f"[dim]Project: {project_name}[/dim]")
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1) from None
+
+
+@app.command("code")
+def index_code_cmd(
+    path: str = typer.Argument(".", help="Directory to index"),
+    project: str = typer.Option(None, "--project", "-p", help="Project name (default: directory name)"),
+    extensions: str = typer.Option(None, "--ext", "-e", help="Comma-separated extensions (e.g., .py,.rs)"),
+    analyze: bool = typer.Option(True, "--analyze/--no-analyze", help="Run AST analysis"),
+    dry_run: bool = typer.Option(False, "--dry-run", "-n", help="Show files without indexing"),
+) -> None:
+    """Index code files for semantic search with optional AST analysis."""
+    try:
+        indexer = get_indexer()
+        base_path = Path(path).expanduser().resolve()
+        project_name = project or base_path.name
+
+        if not base_path.exists():
+            console.print(f"[red]Path not found: {base_path}[/red]")
+            raise typer.Exit(1)
+
+        # Parse extensions
+        ext_set = CODE_EXTENSIONS
+        if extensions:
+            ext_set = {e.strip() if e.startswith(".") else f".{e.strip()}" for e in extensions.split(",")}
+
+        # Collect files to index
+        files_to_index = []
+        for file_path in base_path.rglob("*"):
+            if not file_path.is_file():
+                continue
+            if file_path.suffix.lower() not in ext_set:
+                continue
+            # Skip hidden and vendor directories
+            rel_parts = file_path.relative_to(base_path).parts
+            if any(p.startswith(".") or p in ("node_modules", "vendor", "__pycache__", "target", ".git") for p in rel_parts):
+                continue
+            files_to_index.append(file_path)
+
+        if not files_to_index:
+            console.print("[yellow]No code files found[/yellow]")
+            raise typer.Exit(0)
+
+        if dry_run:
+            console.print(f"[bold]Would index {len(files_to_index)} code files:[/bold]")
+            for f in files_to_index[:20]:
+                console.print(f"  {f.relative_to(base_path)}")
+            if len(files_to_index) > 20:
+                console.print(f"  ... and {len(files_to_index) - 20} more")
+            raise typer.Exit(0)
+
+        # Get database connection
+        import psycopg
+        from personality.config import get_config
+        cfg = get_config().postgres
+        conn = psycopg.connect(host=cfg.host, port=cfg.port, dbname=cfg.database, user=cfg.user, password=cfg.password)
+        ensure_symbols_table(conn)
+
+        indexed_chunks = 0
+        symbols_count = 0
+        error_count = 0
+        start_time = time.time()
+
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TaskProgressColumn(),
+            MofNCompleteColumn(),
+            TimeElapsedColumn(),
+            TimeRemainingColumn(),
+            console=console,
+        ) as progress:
+            task = progress.add_task(f"[cyan]Indexing code ({project_name})", total=len(files_to_index))
+
+            for file_path in files_to_index:
+                try:
+                    content = file_path.read_text(errors="ignore")
+                    if len(content) < 10:
+                        progress.advance(task)
+                        continue
+
+                    str_path = str(file_path)
+
+                    # Chunk and index content
+                    chunks = list(indexer.chunk_content(content))
+                    for i, chunk in enumerate(chunks):
+                        chunk_id = hashlib.md5(f"{file_path}:{i}".encode()).hexdigest()
+                        embedding = indexer.get_embedding(chunk)
+
+                        with conn.cursor() as cur:
+                            cur.execute(
+                                """
+                                INSERT INTO code_index (id, path, content, embedding, language, project)
+                                VALUES (%s, %s, %s, %s, %s, %s)
+                                ON CONFLICT (id) DO UPDATE SET
+                                    content = EXCLUDED.content,
+                                    embedding = EXCLUDED.embedding,
+                                    indexed_at = NOW()
+                                """,
+                                (chunk_id, str_path, chunk, embedding, file_path.suffix, project_name),
+                            )
+                        conn.commit()
+                        indexed_chunks += 1
+
+                    # AST analysis
+                    if analyze:
+                        result = analyze_file(file_path)
+                        if result and not result.errors:
+                            # Clear old data
+                            with conn.cursor() as cur:
+                                cur.execute("DELETE FROM symbols WHERE path = %s", (str_path,))
+                                cur.execute("DELETE FROM imports WHERE source_path = %s", (str_path,))
+                                cur.execute("DELETE FROM calls WHERE source_path = %s", (str_path,))
+                            conn.commit()
+
+                            # Insert symbols
+                            for sym in result.symbols:
+                                sym_id = generate_symbol_id(str_path, sym.name, sym.kind)
+                                sym_text = f"{sym.signature}\n{sym.docstring or ''}"
+                                sym_embedding = indexer.get_embedding(sym_text)
+
+                                with conn.cursor() as cur:
+                                    cur.execute(
+                                        """
+                                        INSERT INTO symbols (id, path, name, kind, signature, start_line, end_line, docstring, parent, project, embedding)
+                                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                        ON CONFLICT (id) DO UPDATE SET
+                                            signature = EXCLUDED.signature,
+                                            embedding = EXCLUDED.embedding,
+                                            indexed_at = NOW()
+                                        """,
+                                        (sym_id, str_path, sym.name, sym.kind, sym.signature,
+                                         sym.start_line, sym.end_line, (sym.docstring or "")[:2000],
+                                         sym.parent or "", project_name, sym_embedding),
+                                    )
+                                conn.commit()
+                                symbols_count += 1
+
+                            # Insert imports
+                            for imp in result.imports:
+                                with conn.cursor() as cur:
+                                    cur.execute(
+                                        "INSERT INTO imports (source_path, imported, project) VALUES (%s, %s, %s)",
+                                        (str_path, imp, project_name),
+                                    )
+                                conn.commit()
+
+                            # Insert calls
+                            for call in result.calls:
+                                with conn.cursor() as cur:
+                                    cur.execute(
+                                        "INSERT INTO calls (source_path, callee, project) VALUES (%s, %s, %s)",
+                                        (str_path, call, project_name),
+                                    )
+                                conn.commit()
+
+                except Exception as e:
+                    error_count += 1
+                    progress.console.print(f"[red]✗[/red] {file_path.name}: {e}")
+
+                progress.advance(task)
+
+        conn.close()
+        elapsed = time.time() - start_time
+        console.print(f"\n[green]✓[/green] Indexed [bold]{indexed_chunks}[/bold] chunks from [bold]{len(files_to_index)}[/bold] files in [bold]{elapsed:.1f}s[/bold]")
+        if analyze:
+            console.print(f"[green]✓[/green] Analyzed [bold]{symbols_count}[/bold] symbols")
+        if error_count:
+            console.print(f"[yellow]⚠[/yellow] {error_count} errors")
+        console.print(f"[dim]Project: {project_name}[/dim]")
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1) from None
 
 
 @app.command("symbols")

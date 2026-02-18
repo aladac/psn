@@ -18,7 +18,7 @@ console = Console()
 
 # Voice directories (local plugin dir + system piper dir)
 LOCAL_VOICES_DIR = Path(__file__).parent.parent.parent.parent / "voices"
-PIPER_DATA_DIR = Path.home() / ".local" / "share" / "piper-tts"
+PIPER_DATA_DIR = Path.home() / ".local" / "share" / "psn"
 SYSTEM_VOICES_DIR = PIPER_DATA_DIR / "voices"
 DEFAULT_VOICE = "en_US-lessac-medium"
 
