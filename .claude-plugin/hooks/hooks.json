@@ -56,6 +56,11 @@
           },
           {
             "type": "command",
+            "command": "psn tts hook-stop",
+            "timeout": 5000
+          },
+          {
+            "type": "command",
             "command": "psn tts stop",
             "timeout": 1000
           },

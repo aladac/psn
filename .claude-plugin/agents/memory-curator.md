@@ -21,7 +21,7 @@ description: |
   user: "Show me everything stored in memory for project X"
   assistant: "I'll use the memory-curator agent to retrieve and organize project X memories."
   </example>
-model: sonnet
+model: opus
 memory: user
 tools:
   - mcp__memory__list

@@ -21,7 +21,7 @@ description: |
   user: "Review the error handling patterns in this codebase"
   assistant: "I'll use the code-analyzer agent to analyze error handling across the project."
   </example>
-model: sonnet
+model: opus
 memory: user
 tools:
   - mcp__indexer__search

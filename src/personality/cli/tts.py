@@ -26,6 +26,7 @@ DEFAULT_VOICE = "en_US-lessac-medium"
 DATA_DIR = Path(__file__).parent.parent.parent.parent / "data"
 TTS_PID_FILE = DATA_DIR / "tts.pid"
 TTS_WAV_FILE = DATA_DIR / "tts_current.wav"
+TTS_SUMMARY_FILE = DATA_DIR / "tts_summary.txt"
 
 
 def stop_current_tts() -> bool:
@@ -345,6 +346,76 @@ def list_character_voices() -> None:
     console.print(table)
 
 
+def _get_completion_summary() -> str | None:
+    """Get and clear the stored completion summary."""
+    if TTS_SUMMARY_FILE.exists():
+        try:
+            summary = TTS_SUMMARY_FILE.read_text().strip()
+            TTS_SUMMARY_FILE.unlink()
+            return summary if summary else None
+        except Exception:
+            pass
+    return None
+
+
+def _save_completion_summary(summary: str) -> None:
+    """Save a completion summary for the next notification."""
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    TTS_SUMMARY_FILE.write_text(summary)
+
+
+def _extract_summary_from_transcript(transcript_path: str) -> str | None:
+    """Extract a brief summary of what was accomplished from the transcript."""
+    try:
+        transcript = Path(transcript_path)
+        if not transcript.exists():
+            return None
+
+        # Read last few lines of transcript to find Claude's last response
+        lines = transcript.read_text().splitlines()
+
+        # Find the last assistant message
+        last_assistant_text = None
+        for line in reversed(lines):
+            try:
+                entry = json.loads(line)
+                if entry.get("type") == "assistant" and entry.get("message"):
+                    msg = entry["message"]
+                    # Get first sentence or first 100 chars
+                    if isinstance(msg, dict):
+                        msg = msg.get("content", "")
+                    if isinstance(msg, str) and msg.strip():
+                        # Take first sentence
+                        first_sentence = msg.split(".")[0].strip()
+                        if len(first_sentence) > 10:
+                            last_assistant_text = first_sentence[:80]
+                            if len(first_sentence) > 80:
+                                last_assistant_text += "..."
+                            break
+            except (json.JSONDecodeError, KeyError, TypeError):
+                continue
+
+        return last_assistant_text
+    except Exception:
+        return None
+
+
+@app.command("hook-stop")
+def hook_stop() -> None:
+    """Stop hook: extract completion summary for TTS notification."""
+    try:
+        data = json.load(sys.stdin)
+        transcript_path = data.get("transcript_path", "")
+
+        if transcript_path:
+            summary = _extract_summary_from_transcript(transcript_path)
+            if summary:
+                _save_completion_summary(summary)
+
+    except (json.JSONDecodeError, KeyError):
+        pass
+
+
 @app.command("hook-notification")
 def hook_notification() -> None:
     """Notification hook: speak notification text aloud."""
@@ -354,6 +425,17 @@ def hook_notification() -> None:
 
         if not message:
             return
+
+        # Get project name from cwd
+        cwd = data.get("cwd", os.getcwd())
+        project_name = Path(cwd).name
+
+        # Check for saved completion summary
+        summary = _get_completion_summary()
+        if summary:
+            message = f"{project_name}: {summary}. {message}"
+        else:
+            message = f"{project_name}: {message}"
 
         # Check if TTS is enabled for active persona
         try:

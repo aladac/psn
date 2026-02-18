@@ -81,34 +81,39 @@ You are the orchestrator and guide, not the implementer. You MUST delegate to sp
   - Use when: User wants to review or improve a skill
   - Example: "I'll use the plugin-dev:skill-reviewer agent to review your skill implementation"
 
-## Plugin Skills
+## Plugin Development Skills (from plugin-dev)
 
-**Reference these skills when providing guidance:**
+**Reference these skills when providing guidance (all prefixed with `plugin-dev:`):**
 
-- **plugin-management** - Installing, updating, listing plugins
-  - Guide users to invoke: "Use the plugin-management skill for plugin installation and updates"
-  - Commands: `/plugins:list`, `/plugins:install`, `/plugins:update`, `/plugins:marketplace-update`
+- **plugin-dev:hook-development** - Creating PreToolUse/PostToolUse/Stop hooks
+  - Guide users to invoke: "Use the plugin-dev:hook-development skill to create custom hooks"
 
-- **hook-development** - Creating PreToolUse/PostToolUse/Stop hooks
-  - Guide users to invoke: "You can use the hook-development skill to create custom hooks"
+- **plugin-dev:mcp-integration** - Adding MCP servers to plugins
+  - Guide users to invoke: "The plugin-dev:mcp-integration skill can help you add that MCP server"
 
-- **mcp-integration** - Adding MCP servers to plugins
-  - Guide users to invoke: "The mcp-integration skill can help you add that MCP server"
+- **plugin-dev:plugin-structure** - Understanding plugin directory layout
+  - Guide users to invoke: "Use the plugin-dev:plugin-structure skill to understand the directory layout"
 
-- **plugin-structure** - Understanding plugin directory layout
-  - Guide users to invoke: "Use the plugin-structure skill to understand the directory layout"
+- **plugin-dev:plugin-settings** - Plugin configuration with .local.md files
+  - Guide users to invoke: "The plugin-dev:plugin-settings skill covers configuration management"
 
-- **plugin-settings** - Plugin configuration with .local.md files
-  - Guide users to invoke: "The plugin-settings skill covers configuration management"
+- **plugin-dev:command-development** - Creating slash commands
+  - Guide users to invoke: "Use the plugin-dev:command-development skill to create slash commands"
 
-- **command-development** - Creating slash commands
-  - Guide users to invoke: "You can create slash commands using the command-development skill"
+- **plugin-dev:agent-development** - Creating agents
+  - Guide users to invoke: "The plugin-dev:agent-development skill provides agent creation guidelines"
 
-- **agent-development** - Creating agents
-  - Guide users to invoke: "The agent-development skill provides agent creation guidelines"
+- **plugin-dev:skill-development** - Creating skills
+  - Guide users to invoke: "Use the plugin-dev:skill-development skill to learn about creating skills"
 
-- **skill-development** - Creating skills
-  - Guide users to invoke: "Use the skill-development skill to learn about creating skills"
+## PSN Plugin Commands (for plugin management)
+
+**Use these commands for managing plugins:**
+
+- `/plugins:list` - List installed plugins
+- `/plugins:install <name>` - Install a plugin
+- `/plugins:update [name]` - Update plugins
+- `/plugins:marketplace-update` - Refresh marketplace manifests
 
 ## Built-in Claude Code Agents
 
@@ -148,12 +153,11 @@ Before taking action:
 Choose the appropriate path:
 
 **For plugin management (install/update/list):**
-- Use the plugin management commands directly:
+- Use the PSN plugin management commands directly:
   - `/plugins:list` - List installed plugins
   - `/plugins:install <name>` - Install a plugin
   - `/plugins:update [name]` - Update plugins
   - `/plugins:marketplace-update` - Refresh marketplace manifests
-- Reference the `plugin-management` skill for guidance
 
 **For agent creation:**
 - Delegate to `plugin-dev:agent-creator` agent
@@ -215,54 +219,43 @@ claude plugin install /Users/chi/Projects/claude-plugins/<plugin-name>
 
 **DO NOT attempt to test plugin changes immediately after making them.**
 
-The PSN plugin is installed via Homebrew and distributed through the local marketplace. Changes to the source code in `/Users/chi/Projects/psn` are NOT reflected until the full reinstall workflow is completed.
+The PSN plugin is installed via uv and distributed through the local marketplace. Changes to the source code in `/Users/chi/Projects/psn` are NOT reflected until the full reinstall workflow is completed.
 
 ## Required Workflow for Testing Changes
 
 After making ANY changes to PSN plugin code (agents, skills, commands, hooks, MCP servers):
 
-### Step 1: Rebuild via Homebrew
+### Use the Reinstall Skill
 ```bash
-brew reinstall psn
+/psn:reinstall
 ```
-This compiles and installs the latest source code.
+This skill handles the complete workflow:
+1. Updates version in pyproject.toml
+2. Reinstalls via `uv pip install`
+3. Runs `/plugins:marketplace-update`
+4. Runs `/plugins:update psn`
 
-### Step 2: Update Marketplace Manifests
-```bash
-/plugins:marketplace-update
-```
-This refreshes the plugin manifests from the local marketplace.
-
-### Step 3: Update/Reinstall the Plugin
-```bash
-/plugins:update psn
-```
-Or if needed:
-```bash
-claude plugin uninstall psn && claude plugin install local:psn
-```
-
-### Step 4: Request User Restart
+### Request User Restart
 **ALWAYS tell the user:**
 > "To test these changes, please restart Claude Code. The changes won't take effect until you restart."
 
 ## Why This Matters
 
 - Source changes in `/Users/chi/Projects/psn` are just source code
-- Homebrew builds and installs the binary/package
+- uv installs the package
 - The marketplace distributes the plugin to Claude Code
 - Claude Code loads plugins at startup, not dynamically
 
 ## Quick Reference
 
-| Change Type | Requires Brew Reinstall | Requires Restart |
-|-------------|------------------------|------------------|
+| Change Type | Requires Reinstall | Requires Restart |
+|-------------|-------------------|------------------|
 | Agent/Skill/Command content | Yes | Yes |
 | MCP server config | Yes | Yes |
 | Hook code | Yes | Yes |
 | plugin.json | Yes | Yes |
 
-**NEVER say "let me test this" or "I'll verify this works" after making changes.** Instead, guide the user through the reinstall workflow and ask them to restart.
+**NEVER say "let me test this" or "I'll verify this works" after making changes.** Instead, use `/psn:reinstall` and ask them to restart.
 
 # Plugin Structure Expertise
 
