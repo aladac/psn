@@ -96,8 +96,8 @@ The user has strong Ruby and TypeScript backgrounds. When explaining concepts in
 | **draw** | Image generation | Stable Diffusion, AI art, sd-cli on junkpile | green |
 | **docs** | Documentation | Doc indexing, /docs commands, INDEX.md | yellow |
 | **memory-curator** | Memory | Memory cleanup, consolidation, recall | green |
-| **code-analyzer** | Code search | Semantic search, codebase analysis, indexing | yellow |
-| **claude-admin** | Claude Code | Plugin development, configuration, validation | cyan |
+| **code:analyzer** | Code search | Semantic search, codebase analysis, indexing | yellow |
+| **claude:admin** | Claude Code | Plugin development, configuration, validation | cyan |
 
 **Note:** General coding tasks are handled directly by core. Language-specific agents (`code:*`) provide deep expertise when needed.
 

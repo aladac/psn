@@ -1,5 +1,5 @@
 ---
-name: devops:cf
+name: cf
 description: |
   Cloudflare infrastructure specialist. Manages DNS zones, Cloudflare Tunnels, Pages deployments, Workers, and related services using flarectl, cloudflared, and wrangler CLIs.
 

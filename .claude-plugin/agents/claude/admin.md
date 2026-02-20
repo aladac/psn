@@ -1,5 +1,5 @@
 ---
-name: claude:admin
+name: admin
 description: |
   Use this agent when the user needs help with Claude Code configuration, plugin development, validation, or creating plugin components (agents, skills, commands, hooks). This agent is the expert on the Claude Code plugin system architecture.
 

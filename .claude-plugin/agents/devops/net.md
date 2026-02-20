@@ -1,5 +1,5 @@
 ---
-name: devops:net
+name: net
 description: |
   Network infrastructure specialist for the home network. Manages Mac-PC direct Ethernet link, Synology NAS, NFS shares, NetworkManager configurations, proxy ARP bridging, and network diagnostics.
 

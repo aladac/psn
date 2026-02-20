@@ -1,5 +1,5 @@
 ---
-name: code:analyzer
+name: analyzer
 color: yellow
 description: |
   Use this agent for deep code analysis tasks that require searching indexed codebases, understanding patterns across multiple files, or building comprehensive understanding of a project's architecture.

@@ -1,5 +1,5 @@
 ---
-name: devops:gh
+name: gh
 description: |
   GitHub and Git specialist. Manages GitHub Actions workflows, gh CLI operations, pull requests, repositories, and Git operations.
 
