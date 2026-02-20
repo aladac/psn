@@ -1,5 +1,5 @@
 ---
-name: coder:ruby
+name: code:ruby
 description: Ruby coding agent. Rails, gems, RSpec, Minitest.
 model: inherit
 color: red

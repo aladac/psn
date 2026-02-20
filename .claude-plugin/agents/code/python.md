@@ -1,5 +1,5 @@
 ---
-name: coder:python
+name: code:python
 description: Python coding agent. Django, Flask, FastAPI, data science, PyWebView GUI.
 model: inherit
 color: blue

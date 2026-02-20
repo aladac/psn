@@ -1,5 +1,5 @@
 ---
-name: coder:typescript
+name: code:typescript
 description: TypeScript coding agent. Node.js, React, Vue, full-stack web development.
 model: inherit
 color: cyan

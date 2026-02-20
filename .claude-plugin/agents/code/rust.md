@@ -1,5 +1,5 @@
 ---
-name: coder:rust
+name: code:rust
 description: Rust coding agent. Systems programming, CLI tools, Dioxus GUI.
 model: inherit
 color: orange
