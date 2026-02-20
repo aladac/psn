@@ -269,11 +269,11 @@ def import_memories(
 ) -> None:
     """Import training memories from a pcart into the vector memory database."""
     import zipfile
+    from urllib.request import Request, urlopen
 
     import psycopg
     import yaml
     from pgvector.psycopg import register_vector
-    from sentence_transformers import SentenceTransformer
 
     from personality.config import get_config
 
@@ -437,14 +437,18 @@ def import_memories(
             conn.commit()
             console.print(f"[green]Registered cart:[/green] {cart_id[:8]}...")
 
-    # Load embedding model
-    console.print("[dim]Loading embedding model...[/dim]")
-    try:
-        ollama_cfg = get_config().ollama
-        model = SentenceTransformer(ollama_cfg.embedding_model, trust_remote_code=True)
-    except Exception as e:
-        console.print(f"[red]Failed to load embedding model:[/red] {e}")
-        raise typer.Exit(1) from None
+    # Ollama embedding function
+    ollama_cfg = get_config().ollama
+    console.print(f"[dim]Using Ollama embeddings:[/dim] {ollama_cfg.url}")
+
+    def get_embedding(text: str) -> list[float]:
+        """Get embedding via Ollama API."""
+        url = f"{ollama_cfg.url}/api/embeddings"
+        data = json.dumps({"model": ollama_cfg.embedding_model, "prompt": text}).encode()
+        req = Request(url, data=data, headers={"Content-Type": "application/json"})
+        with urlopen(req, timeout=30) as resp:
+            result = json.loads(resp.read().decode())
+            return result["embedding"]
 
     # Import memories
     imported = 0
@@ -477,8 +481,8 @@ def import_memories(
                         skipped += 1
                         continue
 
-                # Generate embedding
-                embedding = model.encode(content, convert_to_numpy=True).tolist()
+                # Generate embedding via Ollama
+                embedding = get_embedding(content)
 
                 # Insert memory
                 from uuid import uuid4

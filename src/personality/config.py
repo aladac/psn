@@ -40,10 +40,10 @@ class PostgresConfig(BaseModel):
 class OllamaConfig(BaseModel):
     """Ollama configuration."""
 
-    host: str = Field(default="localhost", description="Ollama server host")
+    host: str = Field(default="junkpile", description="Ollama server host")
     port: int = Field(default=11434, description="Ollama server port")
     embedding_model: str = Field(
-        default="nomic-ai/nomic-embed-text-v1.5", description="Default embedding model"
+        default="nomic-embed-text", description="Default embedding model"
     )
 
     @property
@@ -148,10 +148,10 @@ database = "personality"
 user = "chi"
 
 [ollama]
-# Ollama server for embeddings and generation
-host = "localhost"
+# Ollama server for embeddings and generation (on junkpile)
+host = "junkpile"
 port = 11434
-embedding_model = "nomic-ai/nomic-embed-text-v1.5"
+embedding_model = "nomic-embed-text"
 
 [tts]
 # Text-to-speech settings

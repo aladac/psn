@@ -2,20 +2,21 @@
 """Indexer MCP Server.
 
 Provides code and document indexing with semantic search.
-Uses sentence-transformers for embeddings and PostgreSQL/pgvector for storage.
+Uses Ollama for embeddings and PostgreSQL/pgvector for storage.
 """
 import hashlib
 import json
 import logging
 from pathlib import Path
 from typing import Any
+from urllib.request import Request, urlopen
+from urllib.error import URLError
 
 import psycopg
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import TextContent, Tool
 from pgvector.psycopg import register_vector
-from sentence_transformers import SentenceTransformer
 
 from personality.config import get_config
 
@@ -27,20 +28,6 @@ server = Server("indexer")
 # File extensions to index
 CODE_EXTENSIONS = {".py", ".rs", ".rb", ".js", ".ts", ".go", ".java", ".c", ".cpp", ".h"}
 DOC_EXTENSIONS = {".md", ".txt", ".rst", ".adoc"}
-
-# Lazy-loaded model
-_model: SentenceTransformer | None = None
-
-
-def get_model() -> SentenceTransformer:
-    """Get or initialize the embedding model."""
-    global _model
-    if _model is None:
-        cfg = get_config().ollama
-        logger.info(f"Loading embedding model: {cfg.embedding_model}")
-        _model = SentenceTransformer(cfg.embedding_model, trust_remote_code=True)
-        logger.info("Model loaded successfully")
-    return _model
 
 
 def get_connection() -> psycopg.Connection:
@@ -57,12 +44,25 @@ def get_connection() -> psycopg.Connection:
 
 
 def get_embedding(text: str) -> list[float]:
-    """Get embedding for text using sentence-transformers."""
-    model = get_model()
+    """Get embedding for text using Ollama API."""
+    cfg = get_config().ollama
     # Truncate to avoid token limits
     truncated = text[:8000]
-    embedding = model.encode(truncated, convert_to_numpy=True)
-    return embedding.tolist()
+
+    url = f"{cfg.url}/api/embeddings"
+    data = json.dumps({"model": cfg.embedding_model, "prompt": truncated}).encode()
+
+    try:
+        req = Request(url, data=data, headers={"Content-Type": "application/json"})
+        with urlopen(req, timeout=30) as resp:
+            result = json.loads(resp.read().decode())
+            return result["embedding"]
+    except URLError as e:
+        logger.error(f"Ollama embedding failed: {e}")
+        raise
+    except KeyError:
+        logger.error(f"Unexpected Ollama response: {result}")
+        raise
 
 
 def ensure_schema(conn: psycopg.Connection) -> None:

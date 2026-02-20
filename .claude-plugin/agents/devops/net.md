@@ -64,7 +64,7 @@ You are the network infrastructure specialist for the home network. You manage c
     |   192.168.2.x      |                      |
     |                    |                      |
   [junkpile]             |                      |
-  192.168.2.2            +------[enp3s0]--------+
+  192.168.0.254            +------[enp3s0]--------+
   (enx34298f907c53)           192.168.0.254
                               (proxy ARP bridge)
 ```
@@ -74,7 +74,7 @@ You are the network infrastructure specialist for the home network. You manage c
 | Host | Hostnames | Primary IP | Network Role |
 |------|-----------|------------|--------------|
 | Mac | fuji, f | 192.168.0.17 (WiFi), 192.168.2.1 (Ethernet) | Gateway, NFS client |
-| PC | junkpile, j | 192.168.2.2 | NFS server, NAS bridge, Docker host |
+| PC | junkpile, j | 192.168.0.254 | NFS server, NAS bridge, Docker host |
 | NAS | disk | 192.168.0.235 | Storage (SSH port 555) |
 
 ## Network Interfaces
@@ -91,14 +91,14 @@ You are the network infrastructure specialist for the home network. You manage c
 |-----------|-----|---------|-----|
 | wlx10bf485b58dc | 10:bf:48:5b:58:dc | WiFi (WAN backup) | DHCP |
 | enp3s0 | d8:5e:d3:5c:13:66 | NAS gateway | 192.168.0.254 |
-| enx34298f907c53 | 34:29:8f:90:7c:53 | Direct link to Mac | 192.168.2.2 (static) |
+| enx34298f907c53 | 34:29:8f:90:7c:53 | Direct link to Mac | 192.168.0.254 (static) |
 
 ## Diagnostic Commands
 
 ### Connectivity Tests
 ```bash
 # Test Mac <-> junkpile direct link
-ping -c 3 192.168.2.2
+ping -c 3 192.168.0.254
 
 # Test Mac -> NAS (via junkpile bridge)
 ping -c 3 192.168.0.235
@@ -172,7 +172,7 @@ ssh j "nmcli con show 'Wired connection 2' | grep ipv4"
 # If needed to reconfigure:
 ssh j "sudo nmcli con mod 'Wired connection 2' \
   ipv4.method manual \
-  ipv4.addresses 192.168.2.2/24 \
+  ipv4.addresses 192.168.0.254/24 \
   ipv4.gateway 192.168.2.1 \
   ipv4.dns '8.8.8.8,1.1.1.1'"
 ssh j "sudo nmcli con down 'Wired connection 2' && sudo nmcli con up 'Wired connection 2'"
@@ -193,7 +193,7 @@ ssh j "ip addr show enp3s0 | grep inet"
 ### Add Mac Route to NAS
 ```bash
 # Route NAS traffic through junkpile's Ethernet link
-sudo route add -host 192.168.0.235 192.168.2.2
+sudo route add -host 192.168.0.235 192.168.0.254
 
 # Verify
 netstat -rn | grep 192.168.0.235
@@ -205,17 +205,17 @@ netstat -rn | grep 192.168.0.235
 1. Check Internet Sharing is enabled (System Settings > General > Sharing)
 2. Verify USB Ethernet adapter is connected: `ifconfig en12`
 3. Check bridge100 exists: `ifconfig bridge100`
-4. Ping test: `ping 192.168.2.2`
+4. Ping test: `ping 192.168.0.254`
 
 ### NFS mount fails
 1. Verify junkpile is reachable: `ping j`
 2. Check NFS service: `ssh j "systemctl status nfs-server"`
 3. Check exports: `ssh j "showmount -e localhost"`
-4. Test mount manually: `sudo mount -t nfs 192.168.2.2:/ /Volumes/junkpile`
+4. Test mount manually: `sudo mount -t nfs 192.168.0.254:/ /Volumes/junkpile`
 
 ### Cannot reach NAS from Mac
 1. Verify route exists: `netstat -rn | grep 192.168.0.235`
-2. Add route if missing: `sudo route add -host 192.168.0.235 192.168.2.2`
+2. Add route if missing: `sudo route add -host 192.168.0.235 192.168.0.254`
 3. Check junkpile bridge: `ssh j "ip addr show enp3s0 | grep inet"`
 4. Check proxy ARP: `ssh j "pgrep parprouted"`
 
@@ -261,7 +261,7 @@ Full network configuration details: `/Users/chi/Projects/docs/network.md`
 
 - USB Ethernet adapters may re-enumerate with different interface names after disconnect
 - junkpile's enp3s0 IP (192.168.0.254) is not persistent - add to startup scripts if needed
-- junkpile's enx34298f907c53 IP (192.168.2.2) IS persistent via NetworkManager
+- junkpile's enx34298f907c53 IP (192.168.0.254) IS persistent via NetworkManager
 - NAS SSH is on non-standard port 555
 - NAS has auto-block enabled - failed logins will temporarily block IPs
 
