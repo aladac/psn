@@ -30,14 +30,40 @@ description: |
 model: inherit
 color: orange
 memory: user
-allowedTools:
+tools:
   - TaskCreate
   - TaskUpdate
   - Bash
   - Read
   - Write
+  - Edit
   - Glob
   - Grep
+  - Skill
+---
+
+# Tools Reference
+
+## Task Tools (Pretty Output)
+| Tool | Purpose |
+|------|---------|
+| `TaskCreate` | Create spinner for CF operations |
+| `TaskUpdate` | Update progress or mark complete |
+
+## Built-in Tools
+| Tool | Purpose |
+|------|---------|
+| `Read` | Read CF configs |
+| `Write` | Create configs |
+| `Edit` | Modify wrangler.toml, etc. |
+| `Glob` | Find config files |
+| `Grep` | Search configs |
+| `Bash` | Run flarectl, cloudflared, wrangler |
+| `Skill` | Load Cloudflare skill |
+
+## Related Skills
+- `Skill(skill: "psn:cloudflare")` - Cloudflare patterns
+
 ---
 
 # Cloudflare Infrastructure Specialist

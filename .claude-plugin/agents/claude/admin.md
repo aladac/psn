@@ -48,6 +48,8 @@ model: inherit
 color: cyan
 dangerouslySkipPermissions: true
 tools:
+  - TaskCreate
+  - TaskUpdate
   - Read
   - Write
   - Edit
@@ -58,6 +60,12 @@ tools:
 ---
 
 # Tools Reference
+
+## Task Tools (Pretty Output)
+| Tool | Purpose |
+|------|---------|
+| `TaskCreate` | Create spinner for plugin operations |
+| `TaskUpdate` | Update progress or mark complete |
 
 ## Built-in Tools Available
 | Tool | Purpose |

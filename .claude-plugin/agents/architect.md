@@ -4,7 +4,50 @@ description: "Use this agent when you need architectural analysis, system design
 model: inherit
 color: blue
 memory: user
-permissionMode: bypassPermissions
+dangerouslySkipPermissions: true
+tools:
+  - TaskCreate
+  - TaskUpdate
+  - Read
+  - Write
+  - Glob
+  - Grep
+  - WebSearch
+  - WebFetch
+  - mcp__plugin_psn_memory__store
+  - mcp__plugin_psn_memory__recall
+---
+
+# Tools Reference
+
+## Task Tools (Pretty Output)
+| Tool | Purpose |
+|------|---------|
+| `TaskCreate` | Create spinner for research/analysis |
+| `TaskUpdate` | Update progress or mark complete |
+
+## Built-in Tools
+| Tool | Purpose |
+|------|---------|
+| `Read` | Read local documentation |
+| `Write` | Create architecture docs |
+| `Glob` | Find doc files |
+| `Grep` | Search documentation |
+| `WebSearch` | Research external sources |
+| `WebFetch` | Fetch web documentation |
+
+## MCP Tools (Memory)
+| Tool | Purpose |
+|------|---------|
+| `mcp__plugin_psn_memory__store` | Store architectural decisions |
+| `mcp__plugin_psn_memory__recall` | Recall past decisions |
+
+## Related Commands
+| Command | Purpose |
+|---------|---------|
+| `/plans:create` | Create PLAN.md and TODO.md |
+| `/docs:get` | Fetch documentation |
+
 ---
 
 You are an elite software architect with deep expertise in system design, technology evaluation, and implementation planning. You combine theoretical knowledge with practical experience to deliver actionable architectural guidance.

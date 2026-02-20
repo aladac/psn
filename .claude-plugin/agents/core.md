@@ -41,6 +41,33 @@ allowedTools:
   - Bash
   - Edit
   - Write
+  - Skill
+---
+
+# Tools Reference
+
+## Task Tools
+| Tool | Purpose |
+|------|---------|
+| `Task` | Launch specialist agents |
+| `TaskCreate` | Create spinner for operations |
+| `TaskUpdate` | Update progress or mark complete |
+
+## Built-in Tools
+| Tool | Purpose |
+|------|---------|
+| `Read` | Read source files |
+| `Write` | Create new files |
+| `Edit` | Modify existing files |
+| `Glob` | Find files by pattern |
+| `Grep` | Search file contents |
+| `Bash` | Run commands |
+| `Skill` | Load coding rules and patterns |
+
+## Key Skills
+- `Skill(skill: "psn:code:common")` - Cross-language patterns
+- `Skill(skill: "psn:pretty-output")` - Output guidelines
+
 ---
 
 # Core - Central Command & Coding

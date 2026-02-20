@@ -29,7 +29,56 @@ description: |
 model: inherit
 color: yellow
 memory: user
-permissionMode: bypassPermissions
+dangerouslySkipPermissions: true
+tools:
+  - TaskCreate
+  - TaskUpdate
+  - Read
+  - Write
+  - Edit
+  - Glob
+  - Grep
+  - Bash
+  - WebFetch
+  - mcp__plugin_psn_indexer__index_docs
+  - mcp__plugin_psn_indexer__search
+  - mcp__plugin_psn_indexer__status
+---
+
+# Tools Reference
+
+## Task Tools (Pretty Output)
+| Tool | Purpose |
+|------|---------|
+| `TaskCreate` | Create spinner for doc operations |
+| `TaskUpdate` | Update progress or mark complete |
+
+## Built-in Tools
+| Tool | Purpose |
+|------|---------|
+| `Read` | Read documentation files |
+| `Write` | Create new documentation |
+| `Edit` | Modify existing docs |
+| `Glob` | Find doc files (*.md, *.txt, etc.) |
+| `Grep` | Search doc contents |
+| `Bash` | Run doc-related commands |
+| `WebFetch` | Fetch web documentation |
+
+## MCP Tools (Indexer)
+| Tool | Purpose |
+|------|---------|
+| `mcp__plugin_psn_indexer__index_docs` | Index documentation for search |
+| `mcp__plugin_psn_indexer__search` | Semantic search docs |
+| `mcp__plugin_psn_indexer__status` | Check indexing status |
+
+## Related Commands
+| Command | Purpose |
+|---------|---------|
+| `/docs:get` | Fetch docs from web |
+| `/docs:list` | List documentation |
+| `/docs:sync` | Re-fetch documentation |
+| `/index:docs` | Index docs for search |
+
 ---
 
 # Docs - Documentation Manager

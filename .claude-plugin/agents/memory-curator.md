@@ -25,11 +25,11 @@ model: opus
 tools:
   - TaskCreate
   - TaskUpdate
-  - mcp__memory__list
-  - mcp__memory__search
-  - mcp__memory__recall
-  - mcp__memory__forget
-  - mcp__memory__store
+  - mcp__plugin_psn_memory__list
+  - mcp__plugin_psn_memory__search
+  - mcp__plugin_psn_memory__recall
+  - mcp__plugin_psn_memory__forget
+  - mcp__plugin_psn_memory__store
 ---
 
 # Tools Reference
@@ -40,14 +40,14 @@ tools:
 | `TaskCreate` | Create spinner for long operations |
 | `TaskUpdate` | Update progress or mark complete |
 
-## MCP Tools (mcp__memory__*)
+## MCP Tools (Memory)
 | Tool | Purpose |
 |------|---------|
-| `mcp__memory__list` | List all memory subjects |
-| `mcp__memory__search` | Search by subject |
-| `mcp__memory__recall` | Semantic search memories |
-| `mcp__memory__forget` | Delete a memory |
-| `mcp__memory__store` | Store/update memory |
+| `mcp__plugin_psn_memory__list` | List all memory subjects |
+| `mcp__plugin_psn_memory__search` | Search by subject |
+| `mcp__plugin_psn_memory__recall` | Semantic search memories |
+| `mcp__plugin_psn_memory__forget` | Delete a memory |
+| `mcp__plugin_psn_memory__store` | Store/update memory |
 
 ## Related Commands
 | Command | Purpose |

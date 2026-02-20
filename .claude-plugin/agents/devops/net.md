@@ -30,7 +30,7 @@ description: |
 model: inherit
 color: orange
 memory: user
-allowedTools:
+tools:
   - TaskCreate
   - TaskUpdate
   - Bash
@@ -39,6 +39,8 @@ allowedTools:
   - Glob
   - Grep
   - mcp__plugin_psn_docker-remote__exec
+  - mcp__plugin_psn_docker-remote__containers
+  - mcp__plugin_psn_docker-remote__logs
 ---
 
 # Network Infrastructure Specialist

@@ -34,7 +34,7 @@ description: |
 model: inherit
 color: orange
 memory: user
-allowedTools:
+tools:
   - Task
   - TaskCreate
   - TaskUpdate
@@ -43,6 +43,60 @@ allowedTools:
   - Grep
   - Bash
   - Write
+  - Edit
+  - mcp__plugin_psn_docker-local__containers
+  - mcp__plugin_psn_docker-local__images
+  - mcp__plugin_psn_docker-local__run
+  - mcp__plugin_psn_docker-local__stop
+  - mcp__plugin_psn_docker-local__logs
+  - mcp__plugin_psn_docker-local__exec
+  - mcp__plugin_psn_docker-remote__containers
+  - mcp__plugin_psn_docker-remote__images
+  - mcp__plugin_psn_docker-remote__run
+  - mcp__plugin_psn_docker-remote__stop
+  - mcp__plugin_psn_docker-remote__logs
+  - mcp__plugin_psn_docker-remote__exec
+---
+
+# Tools Reference
+
+## Task Tools
+| Tool | Purpose |
+|------|---------|
+| `Task` | Launch specialist agents |
+| `TaskCreate` | Create spinner for operations |
+| `TaskUpdate` | Update progress or mark complete |
+
+## Built-in Tools
+| Tool | Purpose |
+|------|---------|
+| `Read` | Read config files |
+| `Write` | Create configs |
+| `Edit` | Modify configs |
+| `Glob` | Find files |
+| `Grep` | Search contents |
+| `Bash` | Run commands |
+
+## MCP Tools (Docker Local)
+| Tool | Purpose |
+|------|---------|
+| `mcp__plugin_psn_docker-local__containers` | List local containers |
+| `mcp__plugin_psn_docker-local__images` | List local images |
+| `mcp__plugin_psn_docker-local__run` | Run container |
+| `mcp__plugin_psn_docker-local__stop` | Stop container |
+| `mcp__plugin_psn_docker-local__logs` | Get container logs |
+| `mcp__plugin_psn_docker-local__exec` | Execute in container |
+
+## MCP Tools (Docker Remote - junkpile)
+| Tool | Purpose |
+|------|---------|
+| `mcp__plugin_psn_docker-remote__containers` | List remote containers |
+| `mcp__plugin_psn_docker-remote__images` | List remote images |
+| `mcp__plugin_psn_docker-remote__run` | Run container on junkpile |
+| `mcp__plugin_psn_docker-remote__stop` | Stop remote container |
+| `mcp__plugin_psn_docker-remote__logs` | Get remote logs |
+| `mcp__plugin_psn_docker-remote__exec` | Execute in remote container |
+
 ---
 
 # DevOps - Infrastructure Dispatcher

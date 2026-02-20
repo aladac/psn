@@ -25,11 +25,12 @@ model: opus
 tools:
   - TaskCreate
   - TaskUpdate
-  - mcp__indexer__search
-  - mcp__indexer__status
-  - mcp__indexer__index_code
-  - mcp__memory__store
-  - mcp__memory__recall
+  - mcp__plugin_psn_indexer__search
+  - mcp__plugin_psn_indexer__status
+  - mcp__plugin_psn_indexer__index_code
+  - mcp__plugin_psn_indexer__clear
+  - mcp__plugin_psn_memory__store
+  - mcp__plugin_psn_memory__recall
   - Read
   - Glob
   - Grep
@@ -43,18 +44,19 @@ tools:
 | `TaskCreate` | Create spinner for analysis |
 | `TaskUpdate` | Update progress or complete |
 
-## MCP Tools (mcp__indexer__*)
+## MCP Tools (Indexer)
 | Tool | Purpose |
 |------|---------|
-| `mcp__indexer__search` | Semantic search across indexed code |
-| `mcp__indexer__status` | Check indexing status |
-| `mcp__indexer__index_code` | Index a codebase |
+| `mcp__plugin_psn_indexer__search` | Semantic search across indexed code |
+| `mcp__plugin_psn_indexer__status` | Check indexing status |
+| `mcp__plugin_psn_indexer__index_code` | Index a codebase |
+| `mcp__plugin_psn_indexer__clear` | Clear index for project |
 
-## MCP Tools (mcp__memory__*)
+## MCP Tools (Memory)
 | Tool | Purpose |
 |------|---------|
-| `mcp__memory__store` | Store analysis findings |
-| `mcp__memory__recall` | Recall previous findings |
+| `mcp__plugin_psn_memory__store` | Store analysis findings |
+| `mcp__plugin_psn_memory__recall` | Recall previous findings |
 
 ## Built-in Tools
 | Tool | Purpose |

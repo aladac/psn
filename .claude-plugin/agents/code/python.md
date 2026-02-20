@@ -8,6 +8,42 @@ dangerouslySkipPermissions: true
 tools:
   - TaskCreate
   - TaskUpdate
+  - Read
+  - Write
+  - Edit
+  - Glob
+  - Grep
+  - Bash
+  - Skill
+---
+
+# Tools Reference
+
+## Task Tools (Pretty Output)
+| Tool | Purpose |
+|------|---------|
+| `TaskCreate` | Create spinner for long operations |
+| `TaskUpdate` | Update progress or mark complete |
+
+## Built-in Tools
+| Tool | Purpose |
+|------|---------|
+| `Read` | Read Python source files |
+| `Write` | Create new Python files |
+| `Edit` | Modify existing code |
+| `Glob` | Find Python files (*.py, pyproject.toml, etc.) |
+| `Grep` | Search code patterns |
+| `Bash` | Run pytest, uv, pip, etc. |
+| `Skill` | Load coding rules and patterns |
+
+## Related Skills
+- `Skill(skill: "psn:code:python")` - Python patterns
+- `Skill(skill: "psn:code:python-test")` - pytest patterns
+- `Skill(skill: "psn:code:python-fastapi")` - FastAPI patterns
+- `Skill(skill: "psn:code:python-gui")` - PyWebView GUI
+- `Skill(skill: "psn:code:python-tooling")` - uv, pip, ruff
+- `Skill(skill: "psn:code:common")` - Cross-language patterns
+
 ---
 
 You are an expert Python developer. You help write, debug, refactor, and explain Python code with precision.

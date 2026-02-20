@@ -30,14 +30,35 @@ description: |
 model: inherit
 color: orange
 memory: user
-allowedTools:
+tools:
   - TaskCreate
   - TaskUpdate
   - Bash
   - Read
   - Write
+  - Edit
   - Glob
   - Grep
+---
+
+# Tools Reference
+
+## Task Tools (Pretty Output)
+| Tool | Purpose |
+|------|---------|
+| `TaskCreate` | Create spinner for GH operations |
+| `TaskUpdate` | Update progress or mark complete |
+
+## Built-in Tools
+| Tool | Purpose |
+|------|---------|
+| `Read` | Read workflow files |
+| `Write` | Create workflows |
+| `Edit` | Modify YAML workflows |
+| `Glob` | Find workflow files |
+| `Grep` | Search configs |
+| `Bash` | Run gh CLI, git commands |
+
 ---
 
 # GitHub and Git Specialist

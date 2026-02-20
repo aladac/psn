@@ -1,5 +1,5 @@
 ---
-identifier: hostmaster
+name: hostmaster
 description: |
   Use this agent when the user needs to manage Cloudflare infrastructure including:
   - DNS records and zones (add/remove hosts, zone info)
@@ -7,8 +7,9 @@ description: |
   - Pages deployments and projects
   - Workers management
   Examples: "add a DNS record", "create a tunnel", "deploy to pages", "list my zones"
+
+  Note: devops:cf is the preferred agent for Cloudflare operations. This agent is retained for legacy compatibility.
 model: inherit
-trigger: auto
 color: orange
 tools:
   - TaskCreate
@@ -16,8 +17,10 @@ tools:
   - Bash
   - Read
   - Write
+  - Edit
   - Glob
   - Grep
+  - Skill
 ---
 
 # Tools Reference
