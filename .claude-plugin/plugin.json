@@ -1,6 +1,6 @@
 {
   "name": "psn",
-  "version": "0.2.0+6b44ad5",
+  "version": "0.2.0+112534e",
   "description": "Persona system for Claude Code - cartridges, MCP server, memory, and TTS",
   "author": {
     "name": "chi",
